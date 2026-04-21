@@ -25,7 +25,7 @@ variable "system_subnet_id" {
 
 variable "system_node_vm_size" {
   type    = string
-  default = "Standard_B2s"
+  default = "Standard_B2als_v2"
 }
 
 variable "system_node_count" {
@@ -35,7 +35,7 @@ variable "system_node_count" {
 
 variable "user_node_vm_size" {
   type    = string
-  default = "Standard_B2ms"
+  default = "Standard_B2as_v2"
 }
 
 variable "user_node_min_count" {
