@@ -10,13 +10,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   node_resource_group       = "${var.resource_group_name}-nodes"
 
   default_node_pool {
-    name            = "system"
-    vm_size         = var.system_node_vm_size
-    node_count      = var.system_node_count
-    vnet_subnet_id  = var.system_subnet_id
-    os_disk_size_gb = 30
+    name                         = "system"
+    vm_size                      = var.system_node_vm_size
+    node_count                   = var.system_node_count
+    vnet_subnet_id               = var.system_subnet_id
+    os_disk_size_gb              = 30
     only_critical_addons_enabled = true
-    tags = var.tags
+    tags                         = var.tags
   }
 
   identity {
