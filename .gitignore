@@ -1,0 +1,68 @@
+# ---- Terraform ----
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+.mvn/wrapper/maven-wrapper.jar
+
+# ---- IDE ----
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.project
+.classpath
+.settings/
+.factorypath
+nbproject/
+nb-configuration.xml
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Secrets / creds ----
+*.pem
+*.key
+*.pfx
+*.crt
+.env
+.env.*
+!.env.example
+kubeconfig
+*.kubeconfig
+
+# ---- Build output ----
+build/
+dist/
+out/
+
+# ---- Helm ----
+charts/*.tgz
+**/charts/*/charts/
+
+# ---- Logs / tmp ----
+logs/
+tmp/
+*.swp
+*.bak
