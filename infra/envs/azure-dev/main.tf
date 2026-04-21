@@ -57,14 +57,14 @@ module "aks" {
   location            = azurerm_resource_group.main.location
   kubernetes_version  = var.kubernetes_version
 
-  system_subnet_id      = module.network.subnet_ids["aks-system"]
-  system_node_vm_size   = var.aks_system_node_vm_size
-  system_node_count     = var.aks_system_node_count
-  user_node_vm_size     = var.aks_user_node_vm_size
-  user_node_min_count   = var.aks_user_node_min_count
-  user_node_max_count   = var.aks_user_node_max_count
-  log_analytics_id      = module.monitoring.workspace_id
-  acr_id                = module.acr.id
+  system_subnet_id    = module.network.subnet_ids["aks-system"]
+  system_node_vm_size = var.aks_system_node_vm_size
+  system_node_count   = var.aks_system_node_count
+  user_node_vm_size   = var.aks_user_node_vm_size
+  user_node_min_count = var.aks_user_node_min_count
+  user_node_max_count = var.aks_user_node_max_count
+  log_analytics_id    = module.monitoring.workspace_id
+  acr_id              = module.acr.id
 
   tags = local.tags
 }
