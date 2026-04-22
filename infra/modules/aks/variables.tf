@@ -20,7 +20,13 @@ variable "kubernetes_version" {
 }
 
 variable "system_subnet_id" {
-  type = string
+  description = "Subnet ID for node NICs (both nodepools)."
+  type        = string
+}
+
+variable "pod_subnet_id" {
+  description = "Subnet ID for pod IPs (Azure CNI Dynamic IP Allocation)."
+  type        = string
 }
 
 variable "system_node_vm_size" {

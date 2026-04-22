@@ -14,6 +14,7 @@ resource "azurerm_kubernetes_cluster" "this" {
     vm_size                      = var.system_node_vm_size
     node_count                   = var.system_node_count
     vnet_subnet_id               = var.system_subnet_id
+    pod_subnet_id                = var.pod_subnet_id
     os_disk_size_gb              = 30
     only_critical_addons_enabled = true
     tags                         = var.tags
@@ -24,15 +25,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   }
 
   network_profile {
-    network_plugin      = "azure"
-    network_plugin_mode = "overlay"
-    network_policy      = "cilium"
-    network_data_plane  = "cilium"
-    service_cidr        = "10.200.0.0/16"
-    dns_service_ip      = "10.200.0.10"
-    pod_cidr            = "10.244.0.0/16"
-    load_balancer_sku   = "standard"
-    outbound_type       = "loadBalancer"
+    network_plugin     = "azure"
+    network_policy     = "cilium"
+    network_data_plane = "cilium"
+    service_cidr       = "10.200.0.0/16"
+    dns_service_ip     = "10.200.0.10"
+    load_balancer_sku  = "standard"
+    outbound_type      = "loadBalancer"
   }
 
   oms_agent {
@@ -58,6 +57,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   vm_size               = var.user_node_vm_size
   os_disk_size_gb       = 50
   vnet_subnet_id        = var.system_subnet_id
+  pod_subnet_id         = var.pod_subnet_id
   mode                  = "User"
 
   auto_scaling_enabled = true
