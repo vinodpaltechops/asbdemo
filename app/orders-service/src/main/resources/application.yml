@@ -1,0 +1,34 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: orders-service
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+servicebus:
+  namespace-fqdn: ${SERVICEBUS_NAMESPACE_FQDN}
+  queue-name: ${SERVICEBUS_QUEUE_NAME:orders}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
