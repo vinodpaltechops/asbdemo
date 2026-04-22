@@ -41,3 +41,18 @@ output "workload_identities" {
     }
   }
 }
+
+output "github_actions_client_id" {
+  description = "Client ID (appId) of the AAD app federated with GitHub Actions; set as repo variable AZURE_CLIENT_ID."
+  value       = azuread_application.github_ci.client_id
+}
+
+output "azure_tenant_id" {
+  description = "Set as repo variable AZURE_TENANT_ID."
+  value       = data.azurerm_client_config.current.tenant_id
+}
+
+output "azure_subscription_id" {
+  description = "Set as repo variable AZURE_SUBSCRIPTION_ID."
+  value       = data.azurerm_subscription.current.subscription_id
+}

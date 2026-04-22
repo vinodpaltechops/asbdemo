@@ -86,3 +86,9 @@ variable "log_retention_days" {
   type        = number
   default     = 30
 }
+
+variable "github_repo" {
+  description = "GitHub repository in 'owner/name' form, used for Actions OIDC federation subjects."
+  type        = string
+  default     = "vinodpaltechops/asbdemo"
+}
