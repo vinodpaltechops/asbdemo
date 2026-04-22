@@ -6,12 +6,11 @@ resource "azurerm_user_assigned_identity" "this" {
 }
 
 resource "azurerm_federated_identity_credential" "this" {
-  name                = "${var.name}-fed"
-  resource_group_name = var.resource_group_name
-  parent_id           = azurerm_user_assigned_identity.this.id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = var.aks_oidc_issuer_url
-  subject             = "system:serviceaccount:${var.k8s_namespace}:${var.k8s_service_account}"
+  name                      = "${var.name}-fed"
+  user_assigned_identity_id = azurerm_user_assigned_identity.this.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = var.aks_oidc_issuer_url
+  subject                   = "system:serviceaccount:${var.k8s_namespace}:${var.k8s_service_account}"
 }
 
 resource "azurerm_role_assignment" "this" {

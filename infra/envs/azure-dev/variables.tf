@@ -36,13 +36,13 @@ variable "vnet_address_space" {
 variable "aks_system_node_vm_size" {
   description = "VM size for AKS system nodepool."
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2als_v2"
 }
 
 variable "aks_user_node_vm_size" {
   description = "VM size for AKS user nodepool."
   type        = string
-  default     = "Standard_B2ms"
+  default     = "Standard_B2as_v2"
 }
 
 variable "aks_system_node_count" {
