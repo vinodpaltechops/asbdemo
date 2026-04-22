@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write      # needed for commit comments on push-to-main
   pull-requests: write
 
 env:
@@ -50,7 +50,6 @@ jobs:
 
   plan:
     needs: fmt-validate
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +66,7 @@ jobs:
         id: plan
         run: terraform -chdir=${{ env.WORKING_DIR }} plan -out=tfplan
 
-      - name: Comment plan on PR
+      - name: Post plan outcome (PR comment or commit comment)
         uses: actions/github-script@v7
         if: always()
         env:
@@ -81,15 +80,24 @@ jobs:
             - Full plan output: [view in HCP Terraform UI](https://app.terraform.io/app/vinod-techops-org/workspaces/azure-dev/runs)
             - GitHub Actions logs: ${runUrl}
             `;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body
-            });
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body
+              });
+            } else if (context.eventName === 'push') {
+              await github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body
+              });
+            }
 
   apply:
-    needs: fmt-validate
+    needs: plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: azure-dev    # set required reviewers in GitHub Environments to gate apply
