@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: asbdemo
+
+resources:
+  - namespace.yaml
+  - ../../orders-service
+  - ../../payments-service
+
+images:
+  - name: acrasbdemodevsin.azurecr.io/orders-service
+    newTag: bootstrap
+  - name: acrasbdemodevsin.azurecr.io/payments-service
+    newTag: bootstrap
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: asbdemo
+      env: dev
+    includeSelectors: true
+    includeTemplates: true
