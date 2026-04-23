@@ -4,19 +4,21 @@ kind: Kustomization
 namespace: asbdemo
 
 resources:
-  - namespace.yaml
-  - ../../orders-service
-  - ../../payments-service
+- namespace.yaml
+- ../../orders-service
+- ../../payments-service
 
 images:
-  - name: acrasbdemodevsin.azurecr.io/orders-service
-    newTag: bootstrap
-  - name: acrasbdemodevsin.azurecr.io/payments-service
-    newTag: bootstrap
+- name: acrasbdemodevsin.azurecr.io/orders-service
+  newName: acrasbdemodevsin.azurecr.io/orders-service
+  newTag: 3cc95da
+- name: acrasbdemodevsin.azurecr.io/payments-service
+  newName: acrasbdemodevsin.azurecr.io/payments-service
+  newTag: 3cc95da
 
 labels:
-  - pairs:
-      app.kubernetes.io/part-of: asbdemo
-      env: dev
-    includeSelectors: true
-    includeTemplates: true
+- includeSelectors: true
+  includeTemplates: true
+  pairs:
+    app.kubernetes.io/part-of: asbdemo
+    env: dev
