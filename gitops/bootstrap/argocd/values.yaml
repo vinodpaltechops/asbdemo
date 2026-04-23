@@ -1,0 +1,39 @@
+# Minimal ArgoCD values for dev bootstrap.
+# Server stays ClusterIP; access via `kubectl -n argocd port-forward svc/argocd-server 8080:443`.
+# TLS inside the cluster stays on; we just don't expose externally yet.
+
+global:
+  domain: argocd.local
+
+configs:
+  params:
+    server.insecure: false
+  cm:
+    timeout.reconciliation: 60s
+    statusbadge.enabled: "true"
+
+controller:
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }
+
+repoServer:
+  resources:
+    requests: { cpu: "50m", memory: "128Mi" }
+    limits:   { cpu: "300m", memory: "384Mi" }
+
+server:
+  service:
+    type: ClusterIP
+  resources:
+    requests: { cpu: "50m", memory: "128Mi" }
+    limits:   { cpu: "300m", memory: "256Mi" }
+
+applicationSet:
+  enabled: false
+
+notifications:
+  enabled: false
+
+dex:
+  enabled: false
