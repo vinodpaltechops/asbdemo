@@ -19,8 +19,8 @@ FROM eclipse-temurin:21-jre
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/* \
- && useradd -r -u 1000 -g users app
-USER 1000
+ && useradd -r -u 10001 -g users app
+USER 10001
 WORKDIR /app
 COPY --from=build /workspace/orders-service/target/orders-service.jar /app/app.jar
 EXPOSE 8080
