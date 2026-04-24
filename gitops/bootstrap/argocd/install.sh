@@ -27,6 +27,9 @@ helm upgrade --install argocd argo/argo-cd \
 echo "==> Applying root Application (workloads/envs/dev)"
 kubectl apply -f "${SCRIPT_DIR}/root-app.yaml"
 
+echo "==> Applying platform-root Application (gateway-api CRDs, cert-manager, rollouts, NGF)"
+kubectl apply -f "${SCRIPT_DIR}/platform-root.yaml"
+
 echo
 echo "==> ArgoCD is up. Initial admin password:"
 kubectl -n "${ARGOCD_NAMESPACE}" get secret argocd-initial-admin-secret \
@@ -38,6 +41,9 @@ Access the UI:
   kubectl -n ${ARGOCD_NAMESPACE} port-forward svc/argocd-server 8080:443
   open https://localhost:8080  (username: admin)
 
-Watch the root Application sync:
+Watch the workloads Application sync:
   kubectl -n ${ARGOCD_NAMESPACE} get application workloads-dev -w
+
+Watch the platform app-of-apps sync (CRDs, cert-manager, rollouts, NGF):
+  kubectl -n ${ARGOCD_NAMESPACE} get applications -w
 EOF
