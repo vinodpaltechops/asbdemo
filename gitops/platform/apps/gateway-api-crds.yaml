@@ -15,6 +15,12 @@ spec:
     path: config/crd/standard
   destination:
     server: https://kubernetes.default.svc
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionPolicyBinding
+      jqPathExpressions:
+        - .spec.matchResources.namespaceSelector
+        - .spec.matchResources.objectSelector
   syncPolicy:
     automated:
       prune: true
