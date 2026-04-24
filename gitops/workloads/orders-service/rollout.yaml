@@ -1,25 +1,34 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
-  name: payments-service
+  name: orders-service
   labels:
-    app.kubernetes.io/name: payments-service
+    app.kubernetes.io/name: orders-service
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: payments-service
+      app.kubernetes.io/name: orders-service
+  strategy:
+    canary:
+      steps:
+        - setWeight: 25
+        - pause: { duration: 30s }
+        - setWeight: 50
+        - pause: { duration: 30s }
+        - setWeight: 75
+        - pause: { duration: 30s }
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: payments-service
+        app.kubernetes.io/name: orders-service
         azure.workload.identity/use: "true"
     spec:
-      serviceAccountName: payments-sa
+      serviceAccountName: orders-sa
       terminationGracePeriodSeconds: 40
       containers:
-        - name: payments-service
-          image: acrasbdemodevsin.azurecr.io/payments-service:bootstrap
+        - name: orders-service
+          image: acrasbdemodevsin.azurecr.io/orders-service:bootstrap
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
