@@ -5,6 +5,7 @@ namespace: asbdemo
 
 resources:
 - namespace.yaml
+- gateway.yaml
 - ../../orders-service
 - ../../payments-service
 
