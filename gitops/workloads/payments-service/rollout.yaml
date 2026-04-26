@@ -30,6 +30,7 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+              protocol: TCP
           env:
             - name: SERVICEBUS_NAMESPACE_FQDN
               value: "sb-asbdemo-dev-sin-znsc.servicebus.windows.net"
