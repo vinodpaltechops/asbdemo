@@ -18,7 +18,9 @@ metadata:
   name: orders
 spec:
   parentRefs:
-    - name: asbdemo-gateway
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: asbdemo-gateway
   hostnames:
     - orders.asbdemo.local
   rules:
@@ -27,5 +29,8 @@ spec:
             type: PathPrefix
             value: /orders
       backendRefs:
-        - name: orders-service
+        - group: ""
+          kind: Service
+          name: orders-service
           port: 80
+          weight: 1
