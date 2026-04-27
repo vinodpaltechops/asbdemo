@@ -17,8 +17,15 @@ spec:
     server: https://kubernetes.default.svc
   ignoreDifferences:
     - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionPolicy
+      jqPathExpressions:
+        - .spec.matchConstraints.matchPolicy
+        - .spec.matchConstraints.namespaceSelector
+        - .spec.matchConstraints.objectSelector
+    - group: admissionregistration.k8s.io
       kind: ValidatingAdmissionPolicyBinding
       jqPathExpressions:
+        - .spec.matchResources.matchPolicy
         - .spec.matchResources.namespaceSelector
         - .spec.matchResources.objectSelector
   syncPolicy:
