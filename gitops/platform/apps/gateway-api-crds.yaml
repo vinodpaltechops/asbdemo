@@ -18,16 +18,16 @@ spec:
   ignoreDifferences:
     - group: admissionregistration.k8s.io
       kind: ValidatingAdmissionPolicy
+      name: safe-upgrades.gateway.networking.k8s.io
+      managedFieldsManagers:
+        - kube-apiserver
       jqPathExpressions:
-        - .spec.matchConstraints.matchPolicy
-        - .spec.matchConstraints.namespaceSelector
-        - .spec.matchConstraints.objectSelector
+        - .spec.validations
     - group: admissionregistration.k8s.io
       kind: ValidatingAdmissionPolicyBinding
-      jqPathExpressions:
-        - .spec.matchResources.matchPolicy
-        - .spec.matchResources.namespaceSelector
-        - .spec.matchResources.objectSelector
+      name: safe-upgrades.gateway.networking.k8s.io
+      managedFieldsManagers:
+        - kube-apiserver
   syncPolicy:
     automated:
       prune: true
