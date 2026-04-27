@@ -6,3 +6,4 @@ resources:
   - cert-manager.yaml
   - argo-rollouts.yaml
   - nginx-gateway-fabric.yaml
+  - kube-prometheus-stack.yaml

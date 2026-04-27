@@ -6,3 +6,4 @@ resources:
   - rollout.yaml
   - service.yaml
   - preview-service.yaml
+  - servicemonitor.yaml
