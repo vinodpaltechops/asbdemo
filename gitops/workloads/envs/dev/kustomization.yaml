@@ -12,10 +12,10 @@ resources:
 images:
 - name: acrasbdemodevsin.azurecr.io/orders-service
   newName: acrasbdemodevsin.azurecr.io/orders-service
-  newTag: 2bf48c9
+  newTag: 94427b7
 - name: acrasbdemodevsin.azurecr.io/payments-service
   newName: acrasbdemodevsin.azurecr.io/payments-service
-  newTag: 2bf48c9
+  newTag: 94427b7
 
 labels:
 - includeTemplates: true
