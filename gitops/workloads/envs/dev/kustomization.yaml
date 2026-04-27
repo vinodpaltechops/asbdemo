@@ -12,14 +12,13 @@ resources:
 images:
 - name: acrasbdemodevsin.azurecr.io/orders-service
   newName: acrasbdemodevsin.azurecr.io/orders-service
-  newTag: 3cc95da
+  newTag: 2bf48c9
 - name: acrasbdemodevsin.azurecr.io/payments-service
   newName: acrasbdemodevsin.azurecr.io/payments-service
-  newTag: 3cc95da
+  newTag: 2bf48c9
 
 labels:
-- includeSelectors: false
-  includeTemplates: true
+- includeTemplates: true
   pairs:
     app.kubernetes.io/part-of: asbdemo
     env: dev
