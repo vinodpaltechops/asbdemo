@@ -5,3 +5,4 @@ resources:
   - serviceaccount.yaml
   - rollout.yaml
   - service.yaml
+  - servicemonitor.yaml
