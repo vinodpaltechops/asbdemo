@@ -1,18 +1,20 @@
 package com.asbdemo.payments;
 
-import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.azure.messaging.servicebus.ServiceBusClientBuilder;
-import com.azure.messaging.servicebus.ServiceBusProcessorClient;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.azure.messaging.servicebus.ServiceBusClientBuilder;
+import com.azure.messaging.servicebus.ServiceBusProcessorClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PreDestroy;
 
 @Configuration
 public class ServiceBusProcessorConfig {
@@ -45,7 +47,7 @@ public class ServiceBusProcessorConfig {
                     try {
                         OrderEvent event = mapper.readValue(
                                 ctx.getMessage().getBody().toBytes(), OrderEvent.class);
-                        log.info("Processed order orderId={} amount={} customer={}",
+                        log.info("Processed order [v2] orderId={} amount={} customer={}",
                                 event.orderId(), event.amount(), event.customer());
                         processed.increment();
                         ctx.complete();
