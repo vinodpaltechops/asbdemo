@@ -19,15 +19,13 @@ spec:
     - group: admissionregistration.k8s.io
       kind: ValidatingAdmissionPolicy
       name: safe-upgrades.gateway.networking.k8s.io
-      managedFieldsManagers:
-        - kube-apiserver
-      jqPathExpressions:
-        - .spec.validations
+      jsonPointers:
+        - /spec
     - group: admissionregistration.k8s.io
       kind: ValidatingAdmissionPolicyBinding
       name: safe-upgrades.gateway.networking.k8s.io
-      managedFieldsManagers:
-        - kube-apiserver
+      jsonPointers:
+        - /spec
   syncPolicy:
     automated:
       prune: true
