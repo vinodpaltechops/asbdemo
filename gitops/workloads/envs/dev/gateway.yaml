@@ -1,9 +1,23 @@
+apiVersion: gateway.nginx.org/v1alpha2
+kind: NginxProxy
+metadata:
+  name: asbdemo-gateway-config
+spec:
+  kubernetes:
+    service:
+      type: ClusterIP
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: asbdemo-gateway
 spec:
   gatewayClassName: nginx
+  infrastructure:
+    parametersRef:
+      group: gateway.nginx.org
+      kind: NginxProxy
+      name: asbdemo-gateway-config
   listeners:
     - name: http
       port: 80
