@@ -16,6 +16,8 @@ spec:
     helm:
       releaseName: kube-prometheus-stack
       values: |
+        defaultRules:
+          create: false
         prometheus:
           prometheusSpec:
             retention: 6h
@@ -42,7 +44,7 @@ spec:
           resources:
             requests: { cpu: "25m", memory: "96Mi" }
             limits:   { cpu: "200m", memory: "256Mi" }
-          defaultDashboardsEnabled: true
+          defaultDashboardsEnabled: false
           sidecar:
             dashboards:
               enabled: true
