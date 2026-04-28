@@ -1,0 +1,73 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: asbdemo-slo
+spec:
+  groups:
+    - name: asbdemo.http
+      interval: 30s
+      rules:
+        - alert: AsbdemoHighErrorRate
+          expr: |
+            sum by (job) (rate(http_server_requests_seconds_count{job=~"orders-service|payments-service",status=~"5.."}[5m]))
+              /
+            sum by (job) (rate(http_server_requests_seconds_count{job=~"orders-service|payments-service"}[5m]))
+              > 0.01
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "5xx rate above 1% on {{ $labels.job }}"
+            description: "{{ $labels.job }} has been returning >1% 5xx for 5 minutes."
+
+        - alert: AsbdemoHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le, job) (rate(http_server_requests_seconds_bucket{job=~"orders-service|payments-service",uri!~"/actuator.*"}[5m]))
+            ) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "p95 latency above 500ms on {{ $labels.job }}"
+            description: "{{ $labels.job }} p95 request latency is above 500ms over the last 5 minutes."
+
+    - name: asbdemo.jvm
+      interval: 30s
+      rules:
+        - alert: AsbdemoJvmHeapHigh
+          expr: |
+            jvm_memory_used_bytes{job=~"orders-service|payments-service",area="heap"}
+              /
+            jvm_memory_max_bytes{job=~"orders-service|payments-service",area="heap"}
+              > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "JVM heap above 90% on {{ $labels.job }}"
+            description: "{{ $labels.job }} JVM heap utilisation has been above 90% for 10 minutes."
+
+    - name: asbdemo.servicebus
+      interval: 30s
+      rules:
+        - alert: AsbdemoNoOrdersPublished
+          expr: |
+            increase(orders_published_total{job="orders-service"}[15m]) == 0
+            and on() hour() >= 8 and hour() < 22
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: "No orders published in the last 15 minutes (business hours)"
+            description: "orders-service hasn't published any orders to Service Bus in 15m."
+
+        - alert: AsbdemoOrdersFailedSpike
+          expr: |
+            rate(orders_failed_total{job="payments-service"}[5m]) > 0.5
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "payments-service order failure spike"
+            description: "payments-service is failing more than 0.5 orders/second on average over 5 minutes."

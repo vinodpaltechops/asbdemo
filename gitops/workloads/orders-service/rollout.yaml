@@ -11,6 +11,13 @@ spec:
       app.kubernetes.io/name: orders-service
   strategy:
     canary:
+      analysis:
+        templates:
+          - templateName: success-rate
+        args:
+          - name: service-name
+            value: orders-service
+        startingStep: 1
       steps:
         - setWeight: 25
         - pause: { duration: 30s }

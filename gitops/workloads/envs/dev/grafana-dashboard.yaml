@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: asbdemo-overview-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  asbdemo-overview.json: |
+    {
+      "title": "asbdemo overview",
+      "uid": "asbdemo-overview",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-30m", "to": "now" },
+      "templating": { "list": [] },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Orders published (rate / min)",
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "sum(rate(orders_published_total{job=\"orders-service\"}[1m])) * 60",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 1 } }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Orders processed (rate / min)",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "sum(rate(orders_processed_total{job=\"payments-service\"}[1m])) * 60",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 1 } }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Orders failed (rate / min)",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "sum(rate(orders_failed_total{job=\"payments-service\"}[1m])) * 60",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 0.1 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Service Bus queue depth (active)",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "max(servicebus_queue_active_messages) or vector(0)",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 } }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Throughput: published vs processed",
+          "gridPos": { "x": 0, "y": 4, "w": 24, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum(rate(orders_published_total{job=\"orders-service\"}[1m]))",
+              "refId": "A",
+              "legendFormat": "published / s"
+            },
+            {
+              "expr": "sum(rate(orders_processed_total{job=\"payments-service\"}[1m]))",
+              "refId": "B",
+              "legendFormat": "processed / s"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "HTTP error rate (5xx) by service",
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum by (job) (rate(http_server_requests_seconds_count{job=~\"orders-service|payments-service\",status=~\"5..\"}[5m]))",
+              "refId": "A",
+              "legendFormat": "{{job}} 5xx/s"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "JVM heap utilisation",
+          "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "sum by (job) (jvm_memory_used_bytes{job=~\"orders-service|payments-service\",area=\"heap\"}) / sum by (job) (jvm_memory_max_bytes{job=~\"orders-service|payments-service\",area=\"heap\"})",
+              "refId": "A",
+              "legendFormat": "{{job}} heap %"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "max": 1,
+              "min": 0
+            }
+          }
+        }
+      ]
+    }
