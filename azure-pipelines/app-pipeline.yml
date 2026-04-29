@@ -1,0 +1,137 @@
+# Azure DevOps mirror of .github/workflows/app-ci.yml
+#
+# - PR build: build + Trivy scan only.
+# - Push to main: build + scan + push to ACR + bump GitOps kustomization
+#   and commit/push back to GitHub (PAT pulled from Key Vault).
+#
+# Auth to Azure: Workload Identity Federation via service connection.
+# Auth to GitHub for the bump commit: PAT fetched from Key Vault.
+
+name: app-ci-$(Date:yyyyMMdd)-$(Rev:r)
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - app/**
+      - azure-pipelines/app-pipeline.yml
+      - azure-pipelines/templates/build-and-scan.yml
+
+pr:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - app/**
+      - azure-pipelines/app-pipeline.yml
+      - azure-pipelines/templates/build-and-scan.yml
+
+variables:
+  - group: asbdemo-dev          # AZURE_SERVICE_CONNECTION, KEY_VAULT_NAME, ACR_LOGIN_SERVER
+  - name: IS_MAIN_PUSH
+    value: $[and(eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.Reason'], 'PullRequest'))]
+
+stages:
+  - stage: BuildScan
+    displayName: build + scan
+    jobs:
+      - job: build_scan_push
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+            persistCredentials: false
+
+          - bash: |
+              tag="$(echo $(Build.SourceVersion) | cut -c1-7)"
+              echo "##vso[task.setvariable variable=imageTag;isOutput=true]$tag"
+              echo "Computed tag: $tag"
+            name: meta
+            displayName: Compute image tag
+
+          - template: templates/build-and-scan.yml
+            parameters:
+              serviceName: orders-service
+              imageTag: $(meta.imageTag)
+              acrLoginServer: $(ACR_LOGIN_SERVER)
+
+          - template: templates/build-and-scan.yml
+            parameters:
+              serviceName: payments-service
+              imageTag: $(meta.imageTag)
+              acrLoginServer: $(ACR_LOGIN_SERVER)
+
+          - task: AzureCLI@2
+            displayName: Push images to ACR
+            condition: and(succeeded(), eq(variables.IS_MAIN_PUSH, 'True'))
+            inputs:
+              azureSubscription: $(AZURE_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+                acr_name="${ACR_LOGIN_SERVER%%.*}"
+                az acr login --name "$acr_name"
+                docker push "$(ACR_LOGIN_SERVER)/orders-service:$(meta.imageTag)"
+                docker push "$(ACR_LOGIN_SERVER)/payments-service:$(meta.imageTag)"
+
+  - stage: BumpGitOps
+    displayName: bump gitops
+    dependsOn: BuildScan
+    condition: and(succeeded(), eq(variables.IS_MAIN_PUSH, 'True'))
+    jobs:
+      - job: bump
+        pool:
+          vmImage: ubuntu-latest
+        variables:
+          imageTag: $[ stageDependencies.BuildScan.build_scan_push.outputs['meta.imageTag'] ]
+        steps:
+          - checkout: self
+            persistCredentials: false
+            fetchDepth: 0
+
+          - task: AzureKeyVault@2
+            displayName: Fetch GitHub PAT from Key Vault
+            inputs:
+              azureSubscription: $(AZURE_SERVICE_CONNECTION)
+              KeyVaultName: $(KEY_VAULT_NAME)
+              SecretsFilter: "github-pat-gitops"
+              RunAsPreJob: true
+
+          - script: |
+              set -euo pipefail
+              curl -sfL -o /tmp/kustomize.tgz \
+                https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz
+              tar -xzf /tmp/kustomize.tgz -C /usr/local/bin
+              kustomize version
+            displayName: Install kustomize
+
+          - script: |
+              set -euo pipefail
+              cd gitops/workloads/envs/dev
+              kustomize edit set image \
+                "${ACR_LOGIN_SERVER}/orders-service=${ACR_LOGIN_SERVER}/orders-service:${IMAGE_TAG}"
+              kustomize edit set image \
+                "${ACR_LOGIN_SERVER}/payments-service=${ACR_LOGIN_SERVER}/payments-service:${IMAGE_TAG}"
+            displayName: Bump image tags
+            env:
+              IMAGE_TAG: $(imageTag)
+
+          - script: |
+              set -euo pipefail
+              git config user.name  "azure-pipelines[bot]"
+              git config user.email "azure-pipelines[bot]@users.noreply.github.com"
+              git add gitops/workloads/envs/dev/kustomization.yaml
+              if git diff --staged --quiet; then
+                echo "No image tag change; skipping commit."
+                exit 0
+              fi
+              git commit -m "ci(gitops): bump images to ${IMAGE_TAG}"
+              # Push using PAT — repo URL is rewritten to embed the token.
+              repo_url="https://x-access-token:${GH_PAT}@github.com/vinodpaltechops/asbdemo.git"
+              git push "$repo_url" "HEAD:${BUILD_SOURCEBRANCHNAME}"
+            displayName: Commit and push GitOps bump
+            env:
+              IMAGE_TAG: $(imageTag)
+              GH_PAT: $(github-pat-gitops)

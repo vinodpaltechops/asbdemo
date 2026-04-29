@@ -92,3 +92,21 @@ variable "github_repo" {
   type        = string
   default     = "vinodpaltechops/asbdemo"
 }
+
+# --- Azure DevOps workload identity federation -------------------------------
+# Populate these once you create the ADO service connection
+# (Workload Identity Federation, manual). ADO will display the issuer URL
+# (https://vstoken.dev.azure.com/<adoOrgId>) and subject identifier
+# (sc://<org>/<project>/<service-connection-name>) — paste them here.
+
+variable "azure_devops_wif_issuer" {
+  description = "Issuer URL from the Azure DevOps service connection (WIF). Leave empty to skip federated credential creation."
+  type        = string
+  default     = ""
+}
+
+variable "azure_devops_wif_subject" {
+  description = "Subject identifier from the Azure DevOps service connection (WIF). Leave empty to skip federated credential creation."
+  type        = string
+  default     = ""
+}
