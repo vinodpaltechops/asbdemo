@@ -1,0 +1,147 @@
+# Azure DevOps mirror of .github/workflows/terraform.yml
+#
+# Trigger: PR or push to main when infra/** changes.
+# Auth:    Azure service connection (Workload Identity Federation) named in
+#          variable group `asbdemo-dev`.
+# Secrets: TF_API_TOKEN is fetched from Azure Key Vault at runtime.
+
+name: terraform-$(Date:yyyyMMdd)-$(Rev:r)
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - infra/**
+      - azure-pipelines/terraform-pipeline.yml
+
+pr:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - infra/**
+      - azure-pipelines/terraform-pipeline.yml
+
+variables:
+  - group: asbdemo-dev          # must define: AZURE_SERVICE_CONNECTION, KEY_VAULT_NAME
+  - name: TF_VERSION
+    value: "1.14.8"
+  - name: WORKING_DIR
+    value: infra/envs/azure-dev
+  - name: TF_IN_AUTOMATION
+    value: "true"
+  - name: TF_INPUT
+    value: "false"
+  - name: TF_CLI_ARGS_init
+    value: "-input=false"
+  - name: TF_CLI_ARGS_plan
+    value: "-input=false -no-color"
+  - name: TF_CLI_ARGS_apply
+    value: "-input=false -no-color -auto-approve"
+
+stages:
+  - stage: Validate
+    displayName: fmt + validate
+    jobs:
+      - job: fmt_validate
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: $(TF_VERSION)
+
+          - script: terraform -chdir=$(WORKING_DIR) fmt -check -recursive
+            displayName: terraform fmt -check
+
+          - script: terraform -chdir=$(WORKING_DIR) init -backend=false
+            displayName: terraform init (no backend)
+
+          - script: terraform -chdir=$(WORKING_DIR) validate
+            displayName: terraform validate
+
+  - stage: Plan
+    displayName: plan
+    dependsOn: Validate
+    jobs:
+      - job: plan
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: $(TF_VERSION)
+
+          - task: AzureKeyVault@2
+            displayName: Fetch HCP token from Key Vault
+            inputs:
+              azureSubscription: $(AZURE_SERVICE_CONNECTION)
+              KeyVaultName: $(KEY_VAULT_NAME)
+              SecretsFilter: "tf-api-token"
+              RunAsPreJob: true
+
+          - script: |
+              set -euo pipefail
+              cat > "$HOME/.terraformrc" <<EOF
+              credentials "app.terraform.io" {
+                token = "$(tf-api-token)"
+              }
+              EOF
+              chmod 600 "$HOME/.terraformrc"
+            displayName: Configure HCP credentials
+
+          - script: terraform -chdir=$(WORKING_DIR) init
+            displayName: terraform init
+
+          - script: terraform -chdir=$(WORKING_DIR) plan -out=tfplan
+            displayName: terraform plan
+
+  - stage: Apply
+    displayName: apply
+    dependsOn: Plan
+    # Apply only on merges to main; PR builds stop after Plan.
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - deployment: apply
+        displayName: terraform apply
+        environment: azure-dev    # gate with required reviewers in ADO Environments
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@1
+                  inputs:
+                    terraformVersion: $(TF_VERSION)
+
+                - task: AzureKeyVault@2
+                  displayName: Fetch HCP token from Key Vault
+                  inputs:
+                    azureSubscription: $(AZURE_SERVICE_CONNECTION)
+                    KeyVaultName: $(KEY_VAULT_NAME)
+                    SecretsFilter: "tf-api-token"
+                    RunAsPreJob: true
+
+                - script: |
+                    set -euo pipefail
+                    cat > "$HOME/.terraformrc" <<EOF
+                    credentials "app.terraform.io" {
+                      token = "$(tf-api-token)"
+                    }
+                    EOF
+                    chmod 600 "$HOME/.terraformrc"
+                  displayName: Configure HCP credentials
+
+                - script: terraform -chdir=$(WORKING_DIR) init
+                  displayName: terraform init
+
+                - script: terraform -chdir=$(WORKING_DIR) apply
+                  displayName: terraform apply
