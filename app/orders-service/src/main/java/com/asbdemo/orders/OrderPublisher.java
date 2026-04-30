@@ -30,7 +30,7 @@ public class OrderPublisher {
                     .setContentType(MediaType.APPLICATION_JSON_VALUE)
                     .setMessageId(event.orderId());
             sender.sendMessage(msg);
-            log.info("Published order v2 orderId={} amount={} customer={}",
+            log.info("Published order v3 orderId={} amount={} customer={}",
                     event.orderId(), event.amount(), event.customer());
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to serialize OrderEvent", e);

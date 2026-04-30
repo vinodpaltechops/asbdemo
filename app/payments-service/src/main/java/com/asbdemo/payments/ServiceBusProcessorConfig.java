@@ -47,7 +47,7 @@ public class ServiceBusProcessorConfig {
                     try {
                         OrderEvent event = mapper.readValue(
                                 ctx.getMessage().getBody().toBytes(), OrderEvent.class);
-                        log.info("Processed order [v2] orderId={} amount={} customer={}",
+                        log.info("Processed order [v3] orderId={} amount={} customer={}",
                                 event.orderId(), event.amount(), event.customer());
                         processed.increment();
                         ctx.complete();
