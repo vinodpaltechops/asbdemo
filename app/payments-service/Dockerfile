@@ -16,12 +16,15 @@ RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -pl payments-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre
+ARG OTEL_AGENT_VERSION=2.11.0
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && curl -fsSL -o /opt/opentelemetry-javaagent.jar \
+      https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar \
  && rm -rf /var/lib/apt/lists/* \
  && useradd -r -u 10001 -g users app
 USER 10001
 WORKDIR /app
 COPY --from=build /workspace/payments-service/target/payments-service.jar /app/app.jar
 EXPOSE 8080
-ENTRYPOINT ["java","-XX:+UseContainerSupport","-XX:MaxRAMPercentage=75","-jar","/app/app.jar"]
+ENTRYPOINT ["java","-javaagent:/opt/opentelemetry-javaagent.jar","-XX:+UseContainerSupport","-XX:MaxRAMPercentage=75","-jar","/app/app.jar"]

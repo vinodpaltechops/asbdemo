@@ -7,3 +7,4 @@ resources:
   - argo-rollouts.yaml
   - nginx-gateway-fabric.yaml
   - kube-prometheus-stack.yaml
+  - jaeger.yaml

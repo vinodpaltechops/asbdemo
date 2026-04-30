@@ -46,6 +46,20 @@ spec:
               value: "sb-asbdemo-dev-sin-znsc.servicebus.windows.net"
             - name: SERVICEBUS_QUEUE_NAME
               value: "orders"
+            - name: OTEL_SERVICE_NAME
+              value: "orders-service"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://jaeger-collector.jaeger.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_METRICS_EXPORTER
+              value: "none"
+            - name: OTEL_LOGS_EXPORTER
+              value: "none"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "deployment.environment=dev,service.namespace=asbdemo"
           resources:
             requests:
               cpu: "100m"
