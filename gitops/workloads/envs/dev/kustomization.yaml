@@ -14,10 +14,10 @@ resources:
 images:
 - name: acrasbdemodevsin.azurecr.io/orders-service
   newName: acrasbdemodevsin.azurecr.io/orders-service
-  newTag: af6c1ab
+  newTag: 1d986ec
 - name: acrasbdemodevsin.azurecr.io/payments-service
   newName: acrasbdemodevsin.azurecr.io/payments-service
-  newTag: af6c1ab
+  newTag: 1d986ec
 
 labels:
 - includeTemplates: true
