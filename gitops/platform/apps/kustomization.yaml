@@ -8,3 +8,5 @@ resources:
   - nginx-gateway-fabric.yaml
   - kube-prometheus-stack.yaml
   - jaeger.yaml
+  - eck-operator.yaml
+  - elastic-stack.yaml
