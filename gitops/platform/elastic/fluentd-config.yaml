@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: elastic-system
+data:
+  fluent.conf: |
+    # Tail container logs (CRI format on AKS)
+    <source>
+      @type tail
+      @id in_tail_container_logs
+      path /var/log/containers/*.log
+      pos_file /var/log/fluentd-containers.log.pos
+      tag kubernetes.*
+      read_from_head true
+      <parse>
+        @type cri
+      </parse>
+    </source>
+
+    # Decorate with k8s metadata (pod, namespace, labels)
+    <filter kubernetes.**>
+      @type kubernetes_metadata
+      @id filter_kube_metadata
+    </filter>
+
+    # Try to parse the message field as JSON (Spring's logstash-logback-encoder)
+    # so logger_name, level, traceId, etc. become first-class fields.
+    <filter kubernetes.**>
+      @type parser
+      @id filter_parser_json
+      key_name message
+      reserve_data true
+      remove_key_name_field false
+      emit_invalid_record_to_error false
+      <parse>
+        @type json
+      </parse>
+    </filter>
+
+    # Ship everything to Elasticsearch (ECK uses self-signed certs by default)
+    <match kubernetes.**>
+      @type elasticsearch
+      @id out_es
+      host elasticsearch-es-http.elastic-system.svc.cluster.local
+      port 9200
+      scheme https
+      ssl_verify false
+      user elastic
+      password "#{ENV['ELASTICSEARCH_PASSWORD']}"
+      logstash_format true
+      logstash_prefix asbdemo
+      logstash_dateformat %Y.%m.%d
+      include_timestamp true
+      include_tag_key true
+      tag_key @log_name
+      <buffer>
+        @type memory
+        flush_thread_count 2
+        flush_interval 5s
+        chunk_limit_size 4M
+        retry_max_interval 30
+        retry_forever false
+      </buffer>
+    </match>
