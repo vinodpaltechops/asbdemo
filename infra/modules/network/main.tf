@@ -13,6 +13,21 @@ resource "azurerm_subnet" "this" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [each.value.cidr]
+
+  # AKS attaches a Service Association Link on pod subnets; the matching
+  # delegation must be declared so Terraform refresh/update doesn't drift.
+  dynamic "delegation" {
+    for_each = each.value.aks_pod_delegation ? [1] : []
+    content {
+      name = "aks-pod-delegation"
+      service_delegation {
+        name = "Microsoft.ContainerService/managedClusters"
+        actions = [
+          "Microsoft.Network/virtualNetworks/subnets/join/action",
+        ]
+      }
+    }
+  }
 }
 
 resource "azurerm_network_security_group" "aks" {

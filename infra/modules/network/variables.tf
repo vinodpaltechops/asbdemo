@@ -15,9 +15,10 @@ variable "address_space" {
 }
 
 variable "subnets" {
-  description = "Map of subnet name -> { cidr = string }."
+  description = "Map of subnet name -> { cidr, optional aks_pod_delegation }."
   type = map(object({
-    cidr = string
+    cidr               = string
+    aks_pod_delegation = optional(bool, false)
   }))
 }
 

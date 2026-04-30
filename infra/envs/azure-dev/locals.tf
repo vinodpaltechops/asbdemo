@@ -19,7 +19,7 @@ locals {
 
   subnets = {
     aks-system = { cidr = "10.40.1.0/24" }
-    aks-user   = { cidr = "10.40.2.0/24" }
+    aks-user   = { cidr = "10.40.2.0/24", aks_pod_delegation = true }
     pe         = { cidr = "10.40.10.0/24" }
   }
 
