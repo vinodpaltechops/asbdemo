@@ -47,16 +47,6 @@ output "github_actions_client_id" {
   value       = azuread_application.github_ci.client_id
 }
 
-output "azure_devops_client_id" {
-  description = "Client ID (appId) of the AAD app federated with Azure DevOps; configure in the ADO service connection."
-  value       = azuread_application.ado_ci.client_id
-}
-
-output "key_vault_name" {
-  description = "Key Vault name; reference from the ADO Variable Group / AzureKeyVault@2 task."
-  value       = module.keyvault.name
-}
-
 output "azure_tenant_id" {
   description = "Set as repo variable AZURE_TENANT_ID."
   value       = data.azurerm_client_config.current.tenant_id
