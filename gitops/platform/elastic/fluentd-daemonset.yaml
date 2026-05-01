@@ -28,7 +28,7 @@ spec:
                   - key: agentpool          # Replace with your actual node pool label value
                     operator: In
                     values:
-                      - userpool            # Replace with your actual user pool name from AKS/Terraform
+                      - user            # Replace with your actual user pool name from AKS/Terraform
 
       containers:
         - name: fluentd
