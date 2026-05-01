@@ -16,8 +16,20 @@ spec:
     spec:
       serviceAccountName: fluentd
       tolerations:
-        - operator: Exists
+        - operator: Exists          # tolerates ALL taints — correct for a DaemonSet
       terminationGracePeriodSeconds: 30
+
+      # ✅ ADD THIS — target only your user node pool
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: agentpool          # Replace with your actual node pool label value
+                    operator: In
+                    values:
+                      - userpool            # Replace with your actual user pool name from AKS/Terraform
+
       containers:
         - name: fluentd
           image: fluent/fluentd-kubernetes-daemonset:v1.18-debian-elasticsearch8-1
@@ -47,8 +59,12 @@ spec:
             - name: FLUENT_UID
               value: "0"
           resources:
-            requests: { cpu: "256Mi", memory: "768Mi" }
-            limits:   { cpu: "1000m", memory: "1Gi" }
+            requests:
+              cpu: "256m"       # ✅ FIXED — was "256Mi" (wrong unit)
+              memory: "768Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
           volumeMounts:
             - name: varlog
               mountPath: /var/log
