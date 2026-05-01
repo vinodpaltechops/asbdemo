@@ -47,7 +47,7 @@ spec:
             - name: FLUENT_UID
               value: "0"
           resources:
-            requests: { cpu: "100m", memory: "768Mi" }
+            requests: { cpu: "256Mi", memory: "768Mi" }
             limits:   { cpu: "1000m", memory: "1Gi" }
           volumeMounts:
             - name: varlog
