@@ -54,13 +54,13 @@ variable "aks_system_node_count" {
 variable "aks_user_node_min_count" {
   description = "Minimum user nodes (autoscaled)."
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "aks_user_node_max_count" {
   description = "Maximum user nodes (autoscaled)."
   type        = number
-  default     = 3
+  default     = 5
 }
 
 variable "kubernetes_version" {
