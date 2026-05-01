@@ -54,7 +54,7 @@ variable "aks_system_node_count" {
 variable "aks_user_node_min_count" {
   description = "Minimum user nodes (autoscaled)."
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "aks_user_node_max_count" {
