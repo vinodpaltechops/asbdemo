@@ -52,13 +52,14 @@ resource "azurerm_kubernetes_cluster" "this" {
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "user" {
-  name                  = "user"
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.this.id
-  vm_size               = var.user_node_vm_size
-  os_disk_size_gb       = 50
-  vnet_subnet_id        = var.system_subnet_id
-  pod_subnet_id         = var.pod_subnet_id
-  mode                  = "User"
+  name                        = "user"
+  kubernetes_cluster_id       = azurerm_kubernetes_cluster.this.id
+  vm_size                     = var.user_node_vm_size
+  os_disk_size_gb             = 50
+  vnet_subnet_id              = var.system_subnet_id
+  pod_subnet_id               = var.pod_subnet_id
+  mode                        = "User"
+  temporary_name_for_rotation = "userrot"
 
   auto_scaling_enabled = true
   min_count            = var.user_node_min_count
