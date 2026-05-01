@@ -42,7 +42,7 @@ variable "aks_system_node_vm_size" {
 variable "aks_user_node_vm_size" {
   description = "VM size for AKS user nodepool."
   type        = string
-  default     = "Standard_D2s_v5"
+  default     = "Standard_D2s_v4"
 }
 
 variable "aks_system_node_count" {
