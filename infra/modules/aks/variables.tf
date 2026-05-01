@@ -41,7 +41,7 @@ variable "system_node_count" {
 
 variable "user_node_vm_size" {
   type    = string
-  default = "Standard_B2as_v2"
+  default = "Standard_D2s_v5"
 }
 
 variable "user_node_min_count" {
