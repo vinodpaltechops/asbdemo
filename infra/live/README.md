@@ -11,15 +11,27 @@ infra/live/
 ├── root.hcl                  # root config — inherited by every leaf
 ├── _envcommon/               # (empty) shared module wirings, added in Phase A.2
 └── dev/
-    ├── env.hcl               # dev-specific values (region, naming)
-    └── _root/
-        └── terragrunt.hcl    # leaf — currently wraps infra/envs/azure-dev/
+    └── terragrunt.hcl        # leaf — currently wraps infra/envs/azure-dev/
 ```
 
-The `dev/_root/` subdirectory exists because Terragrunt's
-`find_in_parent_folders("env.hcl")` walks up from the leaf — `env.hcl`
-must live in a parent of every leaf. So leaves go in subdirs like
-`dev/_root/`, `dev/network/`, `dev/aks/`, etc.
+For Phase A.1 the dev environment has a single leaf at `dev/`. Once
+Phase A.2 decomposes the wrapped root into per-component leaves, the
+layout will grow to:
+
+```
+infra/live/
+├── root.hcl
+├── _envcommon/
+│   ├── network.hcl
+│   ├── aks.hcl
+│   └── servicebus.hcl
+└── dev/
+    ├── env.hcl               # added in A.2 — shared dev values
+    ├── network/terragrunt.hcl
+    ├── acr/terragrunt.hcl
+    ├── servicebus/terragrunt.hcl
+    └── aks/terragrunt.hcl
+```
 
 ## Why Terragrunt
 
@@ -36,7 +48,7 @@ Terragrunt gives us:
 | Phase | Scope | Status |
 |---|---|---|
 | **A.1** (this PR) | Add Terragrunt scaffolding wrapping the existing dev root. No state migration. | here |
-| **A.2** | Decompose dev into per-component leaves (network, aks, servicebus, observability). Each gets its own HCP workspace. The `_root` leaf disappears. | next |
+| **A.2** | Decompose dev into per-component leaves (network, aks, servicebus, observability). Each gets its own HCP workspace. | next |
 | **B** | Add `hub/` for shared resources (ACR, private DNS zones, log analytics). Spokes peer to hub. | |
 | **C** | Add `prod/` env — clones dev structure, different sizing/naming. | |
 | **D** | GitOps for prod cluster (ArgoCD multi-cluster). | |
@@ -44,24 +56,28 @@ Terragrunt gives us:
 
 ## Usage
 
-Install Terragrunt:
+Install:
 
 ```bash
-brew install terragrunt
+brew install terragrunt terraform
 terragrunt --version
+terraform --version
+
+# first-time HCP auth (once per machine)
+terraform login app.terraform.io
 ```
 
 Plan dev:
 
 ```bash
-cd infra/live/dev/_root
+cd infra/live/dev
 terragrunt plan
 ```
 
 Apply dev:
 
 ```bash
-cd infra/live/dev/_root
+cd infra/live/dev
 terragrunt apply
 ```
 
@@ -74,13 +90,12 @@ terragrunt run-all plan
 
 ## Phase A.1 expected behavior
 
-`terragrunt plan` from `infra/live/dev/_root/` does this under the hood:
+`terragrunt plan` from `infra/live/dev/` does this under the hood:
 
-1. Read `infra/live/root.hcl` and `infra/live/dev/env.hcl` (via `find_in_parent_folders`)
-2. Copy `infra/envs/azure-dev/` into a temp `.terragrunt-cache/` directory
-3. Pass env.hcl inputs as `TF_VAR_*` environment variables
-4. Run `terraform init` (uses HCP cloud{} block from the wrapped `versions.tf`)
-5. Run `terraform plan` — should report **No changes** because we're wrapping the same code that's already managing the cluster
+1. Read `infra/live/root.hcl` (via `find_in_parent_folders("root.hcl")`)
+2. Copy `infra/envs/azure-dev/` plus `infra/modules/**` (via `include_in_copy`) into `.terragrunt-cache/`, preserving the `../../modules/...` relative paths
+3. Run `terraform init` (uses the HCP cloud{} block from the wrapped `versions.tf`)
+4. Run `terraform plan` — should report **No changes** because we're wrapping the same code that's already managing the cluster
 
 If you see resource changes in the plan, something in the wrapper drifted from the original root — investigate before applying.
 
@@ -91,4 +106,4 @@ If you see resource changes in the plan, something in the wrapper drifted from t
 - `infra/modules/` is untouched
 - CI workflows are untouched
 
-The Terragrunt layout is **additive** — we run it locally to validate equivalence, then start using it as the canonical entry point in Phase A.2.
+The Terragrunt layout is **additive** — run it locally to validate equivalence, then we start using it as the canonical entry point in Phase A.2.
