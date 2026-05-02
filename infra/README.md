@@ -69,14 +69,16 @@ Plan dev:
 
 ```bash
 cd infra/envs/azure-dev
-terragrunt plan
+# Phase A.1: Terragrunt wrapping in progress; use terraform directly for now
+terraform init
+terraform plan
 ```
 
 Apply dev:
 
 ```bash
 cd infra/envs/azure-dev
-terragrunt apply
+terraform apply
 ```
 
 Plan all envs (becomes useful in Phase A.2+):
@@ -88,15 +90,16 @@ terragrunt run-all plan
 
 ## Phase A.1 expected behavior
 
-`terragrunt plan` from `infra/envs/azure-dev/`:
+Running `terraform plan` from `infra/envs/azure-dev/`:
 
-1. Terragrunt reads `terragrunt.hcl` here, walks up to find `infra/root.hcl`
-2. Includes root config (currently no-op — just documentation)
-3. Runs `terraform init` from this directory
-4. Runs `terraform plan` — uses the HCP cloud{} block in `versions.tf`, hits HCP workspace `azure-dev`
-5. Reports **No changes** because we're driving the same code that's already managing the cluster
+1. Terraform reads `main.tf` (and other .tf files) from this directory
+2. Initializes modules from `../../modules/*` (relative paths resolve from this dir)
+3. Reads the HCP cloud{} block in `versions.tf`, hits HCP workspace `azure-dev`
+4. Reports **No changes** because we're driving the same code that's already managing the cluster
 
 If the plan shows resource changes, something's drifted between local state and HCP — investigate before applying.
+
+**Note:** Terragrunt wrapping is in progress. Once it's fully configured (Phase A.1.5), you'll use `terragrunt plan` instead, but the behavior will be identical.
 
 ## What does NOT change in this phase
 
