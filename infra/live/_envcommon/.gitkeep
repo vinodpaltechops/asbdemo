@@ -1,0 +1,3 @@
+# Placeholder — populated in Phase A.2 with shared module wirings
+# (network.hcl, aks.hcl, servicebus.hcl, etc.) once we decompose
+# the wrapped Terraform root into per-component leaves.
