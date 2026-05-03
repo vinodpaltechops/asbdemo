@@ -3,6 +3,10 @@ locals {
   environment = "prod"
 }
 
+terraform {
+  source = "../../../terraform//envs/shared"
+}
+
 include "root" {
   path = find_in_parent_folders("root.hcl")
 }
@@ -15,7 +19,7 @@ generate "backend" {
       cloud {
         organization = "${local.env.locals.org}"
         workspaces {
-          name = "${local.environment}"
+          name = "${local.env.locals.env_name_prod}"
         }
       }
     }
@@ -23,5 +27,13 @@ generate "backend" {
 }
 
 inputs = {
-  environment = local.environment
+  environment              = local.environment
+  vnet_address_space       = ["10.50.0.0/16"]
+  subnet_aks_system_cidr   = "10.50.1.0/24"
+  subnet_aks_user_cidr     = "10.50.2.0/24"
+  subnet_pe_cidr           = "10.50.10.0/24"
+  aks_system_node_count    = 2
+  aks_user_node_min_count  = 3
+  aks_user_node_max_count  = 10
+  log_retention_days       = 90
 }

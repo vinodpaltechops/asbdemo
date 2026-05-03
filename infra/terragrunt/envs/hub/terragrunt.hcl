@@ -3,6 +3,10 @@ locals {
   environment = "hub"
 }
 
+terraform {
+  source = "../../../terraform//envs/azure-hub"
+}
+
 include "root" {
   path = find_in_parent_folders("root.hcl")
 }
@@ -15,7 +19,7 @@ generate "backend" {
       cloud {
         organization = "${local.env.locals.org}"
         workspaces {
-          name = "${local.environment}"
+          name = "${local.env.locals.env_name_hub}"
         }
       }
     }

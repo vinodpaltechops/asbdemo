@@ -1,6 +1,39 @@
 data "azurerm_client_config" "current" {}
 data "azurerm_subscription" "current" {}
 
+locals {
+  prefix        = "${var.app_name}-${var.environment}-${var.location_short}"
+  prefix_nodash = "${var.app_name}${var.environment}${var.location_short}"
+
+  names = {
+    rg             = "rg-${local.prefix}"
+    vnet           = "vnet-${local.prefix}"
+    nsg_aks        = "nsg-aks-${local.prefix}"
+    kv             = "kv-${local.prefix}"
+    acr            = "acr${local.prefix_nodash}"
+    law            = "log-${local.prefix}"
+    aks            = "aks-${local.prefix}"
+    aks_dns_prefix = "aks-${local.prefix}"
+    sb             = "sb-${local.prefix}-${random_string.sb_suffix.result}"
+    mi_orders      = "mi-orders-${local.prefix}"
+    mi_payments    = "mi-payments-${local.prefix}"
+  }
+
+  subnets = {
+    aks-system = { cidr = var.subnet_aks_system_cidr }
+    aks-user   = { cidr = var.subnet_aks_user_cidr, aks_pod_delegation = true }
+    pe         = { cidr = var.subnet_pe_cidr }
+  }
+
+  tags = {
+    app         = var.app_name
+    environment = var.environment
+    managed_by  = "terraform"
+    repo        = "azureservicebus"
+    workspace   = "vinod-techops-org/azure-${var.environment}"
+  }
+}
+
 resource "azurerm_resource_group" "main" {
   name     = local.names.rg
   location = var.location
@@ -49,6 +82,17 @@ module "acr" {
   tags                = local.tags
 }
 
+module "servicebus" {
+  source = "../../modules/servicebus"
+
+  namespace_name      = local.names.sb
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  sku                 = "Basic"
+  queue_names         = [var.servicebus_queue_name]
+  tags                = local.tags
+}
+
 module "aks" {
   source = "../../modules/aks"
 
@@ -71,18 +115,6 @@ module "aks" {
   tags = local.tags
 }
 
-module "servicebus" {
-  source = "../../modules/servicebus"
-
-  namespace_name      = local.names.sb
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  sku                 = "Basic"
-  queue_names         = [var.servicebus_queue_name]
-  tags                = local.tags
-}
-
-# Workload identity for the orders (producer) service
 module "wi_orders" {
   source = "../../modules/workload-identity"
 
@@ -103,7 +135,6 @@ module "wi_orders" {
   tags = local.tags
 }
 
-# Workload identity for the payments (consumer) service
 module "wi_payments" {
   source = "../../modules/workload-identity"
 
@@ -122,4 +153,11 @@ module "wi_payments" {
   ]
 
   tags = local.tags
+}
+
+resource "random_string" "sb_suffix" {
+  length  = 4
+  upper   = false
+  special = false
+  numeric = true
 }

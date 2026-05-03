@@ -10,9 +10,8 @@ variable "app_name" {
 }
 
 variable "environment" {
-  description = "Environment label (dev/stage/prod)."
+  description = "Environment label (dev/prod)."
   type        = string
-  default     = "dev"
 }
 
 variable "location" {
@@ -30,7 +29,21 @@ variable "location_short" {
 variable "vnet_address_space" {
   description = "Address space for the workload VNet."
   type        = list(string)
-  default     = ["10.40.0.0/16"]
+}
+
+variable "subnet_aks_system_cidr" {
+  description = "CIDR for AKS system subnet."
+  type        = string
+}
+
+variable "subnet_aks_user_cidr" {
+  description = "CIDR for AKS user subnet."
+  type        = string
+}
+
+variable "subnet_pe_cidr" {
+  description = "CIDR for private endpoint subnet."
+  type        = string
 }
 
 variable "aks_system_node_vm_size" {
@@ -48,19 +61,16 @@ variable "aks_user_node_vm_size" {
 variable "aks_system_node_count" {
   description = "Number of system nodes (kube-system workloads only)."
   type        = number
-  default     = 1
 }
 
 variable "aks_user_node_min_count" {
   description = "Minimum user nodes (autoscaled)."
   type        = number
-  default     = 3
 }
 
 variable "aks_user_node_max_count" {
   description = "Maximum user nodes (autoscaled)."
   type        = number
-  default     = 5
 }
 
 variable "kubernetes_version" {
@@ -84,7 +94,6 @@ variable "apps_namespace" {
 variable "log_retention_days" {
   description = "Log Analytics workspace retention."
   type        = number
-  default     = 30
 }
 
 variable "github_repo" {
