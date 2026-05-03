@@ -3,12 +3,6 @@ locals {
   environment = "dev"
 }
 
-terraform {
-  # Use relative path to prevent Terragrunt from copying/caching
-  # This keeps module paths valid (${path.module}/../../modules works)
-  source = "../../../terraform/envs/azure-dev"
-}
-
 include "root" {
   path = find_in_parent_folders("root.hcl")
 }
