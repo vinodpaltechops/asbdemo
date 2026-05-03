@@ -1,10 +1,12 @@
-terraform {
-  source = "../../terraform/envs/azure-prod"
+locals {
+  # Compute absolute paths using repo root marker
+  repo_root  = dirname(find_in_parent_folders(".terragrunt-root"))
+  env        = read_terragrunt_config(find_in_parent_folders("env.hcl"))
+  environment = "prod"
 }
 
-locals {
-  env         = read_terragrunt_config(find_in_parent_folders("env.hcl"))
-  environment = "prod"
+terraform {
+  source = "${local.repo_root}/infra/terraform/envs/azure-prod"
 }
 
 include "root" {

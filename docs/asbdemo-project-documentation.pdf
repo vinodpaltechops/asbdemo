@@ -1,0 +1,1320 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R 20 0 R 22 0 R 24 0 R 26 0 R] /Count 12 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 2678 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+() Tj
+T*
+(ASBDEMO PROJECT DOCUMENTATION) Tj
+T*
+(Terraform-provisioned Azure infrastructure, Spring Boot microservices, Azure Service Bus) Tj
+T*
+(messaging, AKS GitOps delivery, Gateway API ingress, and observability.Repository) Tj
+T*
+(reviewed:azureservicebus) Tj
+T*
+(Document generated:2026-05-02) Tj
+T*
+(Environment described:azure-dev, application namespaceasbdemo, Azure regionsouthindia) Tj
+T*
+(Primary source paths:infra/,app/,gitops/,.github/workflows/,azure-pipelines/) Tj
+T*
+() Tj
+T*
+(TABLE OF CONTENTS) Tj
+T*
+() Tj
+T*
+(- Executive Summary) Tj
+T*
+(- Architecture Overview) Tj
+T*
+(- Repository Structure) Tj
+T*
+(- Azure Infrastructure Provisioning with Terraform) Tj
+T*
+(- Spring Boot Microservices) Tj
+T*
+(- Azure Service Bus Messaging Flow) Tj
+T*
+(- Containerization) Tj
+T*
+(- AKS Workload Deployment with GitOps) Tj
+T*
+(- Gateway API and Traffic Management) Tj
+T*
+(- Progressive Delivery with Argo Rollouts) Tj
+T*
+(- Monitoring, Logging, and Tracing) Tj
+T*
+(- CI/CD Automation) Tj
+T*
+(- Security and Identity Model) Tj
+T*
+(- Operational Runbook) Tj
+T*
+(- Current Implementation Notes and Recommended Next Steps) Tj
+T*
+() Tj
+T*
+(1. EXECUTIVE SUMMARY) Tj
+T*
+() Tj
+T*
+(This project is an end-to-end cloud-native demonstration that connects two Java 21 Spring Boot) Tj
+T*
+(microservices through Azure Service Bus and runs them on Azure Kubernetes Service \(AKS\). The) Tj
+T*
+(infrastructure is declared through Terraform, delivery is handled through GitOps using ArgoCD,) Tj
+T*
+(progressive deployment behavior is managed by Argo Rollouts, and runtime visibility is provided) Tj
+T*
+(through Prometheus, Grafana, Jaeger, Elasticsearch, Kibana, and Fluentd.) Tj
+T*
+() Tj
+T*
+(The application domain is intentionally small so the platform patterns are easy to) Tj
+T*
+(see.orders-serviceaccepts an order creation request over HTTP and publishes anOrderEventto an) Tj
+T*
+(Azure Service Bus queue.payments-serviceconsumes the same queue and records message processing) Tj
+T*
+(success or failure. Both services expose Spring Actuator health and Prometheus endpoints, emit) Tj
+T*
+(structured logs outside local mode, and use Azure workload identity rather than connection) Tj
+T*
+(strings in AKS.) Tj
+T*
+() Tj
+T*
+(The project demonstrates several production-aligned practices: remote Terraform execution) Tj
+T*
+(through HCP Terraform, Azure managed identities with federated Kubernetes service accounts, ACR) Tj
+T*
+(image publishing, app-of-apps GitOps, canary and blue-green rollout strategies, Gateway API) Tj
+T*
+(ingress, Prometheus alerting rules, and JSON log shipping into Elasticsearch.) Tj
+T*
+() Tj
+T*
+(2. ARCHITECTURE OVERVIEW) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 2663 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+() Tj
+T*
+(Developer / CI) Tj
+T*
+(  |) Tj
+T*
+(  | app or infra change) Tj
+T*
+(  v) Tj
+T*
+(GitHub Actions or Azure Pipelines) Tj
+T*
+(  |-- Terraform workflow: fmt, validate, plan, apply through HCP Terraform) Tj
+T*
+(  |-- App workflow: build images, Trivy scan, push to ACR, bump GitOps image tags) Tj
+T*
+(  v) Tj
+T*
+(Git repository as source of truth) Tj
+T*
+(  |) Tj
+T*
+(  | ArgoCD watches gitops/) Tj
+T*
+(  v) Tj
+T*
+(AKS cluster) Tj
+T*
+(  |-- Platform apps: Gateway API CRDs, NGINX Gateway Fabric, cert-manager,) Tj
+T*
+(  |   Argo Rollouts, kube-prometheus-stack, Jaeger, ECK, Elasticsearch, Kibana, Fluentd) Tj
+T*
+(  |) Tj
+T*
+(  |-- Workloads in namespace asbdemo) Tj
+T*
+(      |-- orders-service: HTTP API, Service Bus sender, canary rollout) Tj
+T*
+(      |-- payments-service: Service Bus processor, blue-green rollout) Tj
+T*
+(      |) Tj
+T*
+(      v) Tj
+T*
+(Azure Service Bus namespace and orders queue) Tj
+T*
+() Tj
+T*
+(The infrastructure and runtime system are separated into clear concerns. Terraform creates Azure) Tj
+T*
+(resources and Kubernetes-ready identities. GitOps deploys in-cluster platform add-ons and) Tj
+T*
+(application workloads. CI/CD connects application source changes to the GitOps layer by) Tj
+T*
+(publishing immutable image tags and updating the workload kustomization.) Tj
+T*
+() Tj
+T*
+(KEY TECHNOLOGY CHOICES) Tj
+T*
+() Tj
+T*
+(Area | Implementation | Purpose) Tj
+T*
+(Infrastructure as Code | Terraform>= 1.9.0, HCP Terraform workspacevinod-techops-org/azure-dev |) Tj
+T*
+(Reproducible provisioning and remote state/execution.) Tj
+T*
+(Cloud platform | Azure, regionsouthindia | Hosts AKS, ACR, Service Bus, Key Vault, and Log) Tj
+T*
+(Analytics.) Tj
+T*
+(Kubernetes | AKS with Azure CNI and Cilium network policy/data plane | Container orchestration) Tj
+T*
+(for microservices and platform add-ons.) Tj
+T*
+(Messaging | Azure Service Bus Basic SKU queue namedorders | Point-to-point asynchronous) Tj
+T*
+(communication between services.) Tj
+T*
+(Application framework | Spring Boot 3.3.5, Java 21, Maven multi-module project | REST API,) Tj
+T*
+(Service Bus clients, health checks, metrics.) Tj
+T*
+(Identity | AKS OIDC issuer plus Azure Workload Identity | Passwordless Azure authentication from) Tj
+T*
+(Kubernetes pods.) Tj
+T*
+(GitOps | ArgoCD app-of-apps with Kustomize overlays | Cluster state reconciled from Git.) Tj
+T*
+(Progressive delivery | Argo Rollouts | Canary for orders and blue-green for payments.) Tj
+T*
+(Ingress | Gateway API with NGINX Gateway Fabric | HTTP routing to the orders API.) Tj
+T*
+(Observability | Prometheus, Grafana, Jaeger, ECK Elasticsearch/Kibana, Fluentd | Metrics,) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 3083 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+(dashboards, alerts, traces, and logs.) Tj
+T*
+() Tj
+T*
+(3. REPOSITORY STRUCTURE) Tj
+T*
+() Tj
+T*
+(Path | Description) Tj
+T*
+(app/ | Maven parent project containingorders-serviceandpayments-service, Dockerfiles, local) Tj
+T*
+(Docker Compose, and application configuration.) Tj
+T*
+(infra/envs/azure-dev/ | The active Terraform environment stack. It wires together all Azure) Tj
+T*
+(modules for the dev environment and uses the HCP Terraform cloud block.) Tj
+T*
+(infra/modules/ | Reusable Terraform modules for network, AKS, ACR, Key Vault, monitoring,) Tj
+T*
+(Service Bus, and workload identity.) Tj
+T*
+(gitops/bootstrap/argocd/ | ArgoCD Helm values, bootstrap script, and root ArgoCD Applications.) Tj
+T*
+(gitops/platform/apps/ | ArgoCD Applications for platform add-ons such as Gateway API CRDs, NGINX) Tj
+T*
+(Gateway Fabric, cert-manager, Argo Rollouts, Prometheus, Jaeger, and ECK.) Tj
+T*
+(gitops/platform/elastic/ | Elasticsearch, Kibana, Fluentd configuration, RBAC, and DaemonSet) Tj
+T*
+(resources.) Tj
+T*
+(gitops/workloads/ | Application manifests for orders, payments, environment overlay, Gateway,) Tj
+T*
+(PrometheusRule, and Grafana dashboard ConfigMap.) Tj
+T*
+(.github/workflows/ | GitHub Actions workflows for Terraform and application) Tj
+T*
+(build/scan/push/GitOps bump.) Tj
+T*
+(azure-pipelines/ | Azure DevOps mirror pipelines for Terraform and application delivery.) Tj
+T*
+(docs/ | Operational runbook and generated project documentation.) Tj
+T*
+() Tj
+T*
+(4. AZURE INFRASTRUCTURE PROVISIONING WITH TERRAFORM) Tj
+T*
+() Tj
+T*
+(The Terraform environment underinfra/envs/azure-devis the central composition layer. It defines) Tj
+T*
+(the resource group and invokes reusable modules for the core Azure landing zone and workload) Tj
+T*
+(dependencies. Naming is controlled through locals using the) Tj
+T*
+(format<resource-type>-asbdemo-dev-sin, with a no-dash variant for globally constrained resources) Tj
+T*
+(such as ACR.) Tj
+T*
+() Tj
+T*
+(4.1 TERRAFORM PROVIDERS AND REMOTE EXECUTION) Tj
+T*
+() Tj
+T*
+(The stack requires Terraform>= 1.9.0and uses theazurerm,azuread, andrandomproviders. The) Tj
+T*
+(Terraform cloud block points to organizationvinod-techops-organd workspaceazure-dev, so local) Tj
+T*
+(commands stream remote HCP Terraform runs rather than executing plans locally.) Tj
+T*
+() Tj
+T*
+(Provider features intentionally setprevent_deletion_if_contains_resources = falsefor resource) Tj
+T*
+(groups and configure Key Vault soft-delete recovery/purge behavior. The runbook explains) Tj
+T*
+(one-time OIDC federation setup for HCP Terraform so the workspace can authenticate to Azure) Tj
+T*
+(without storing a client secret.) Tj
+T*
+() Tj
+T*
+(4.2 RESOURCE GROUP AND NAMING) Tj
+T*
+() Tj
+T*
+(The environment provisions one main resource group namedrg-asbdemo-dev-sin. Tags are) Tj
+T*
+(consistently applied with keys for application, environment, Terraform ownership, repository,) Tj
+T*
+(and HCP workspace. The Service Bus namespace includes a random four-character suffix to satisfy) Tj
+T*
+(Azure's global uniqueness requirement.) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
+endobj
+11 0 obj
+<< /Length 2632 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+() Tj
+T*
+(4.3 NETWORKING MODULE) Tj
+T*
+() Tj
+T*
+(The network module creates a virtual network with address space10.40.0.0/16and three subnets:) Tj
+T*
+() Tj
+T*
+(- aks-system:10.40.1.0/24, used by the AKS system node pool.) Tj
+T*
+(- aks-user:10.40.2.0/24, configured with AKS pod subnet delegation) Tj
+T*
+(toMicrosoft.ContainerService/managedClusters.) Tj
+T*
+(- pe:10.40.10.0/24, reserved for private endpoint style expansion.) Tj
+T*
+() Tj
+T*
+(A network security group is associated with the AKS system and user subnets. The pod delegation) Tj
+T*
+(is important because AKS attaches service association links to pod subnets; declaring the) Tj
+T*
+(delegation prevents Terraform drift during refresh and update operations.) Tj
+T*
+() Tj
+T*
+(4.4 MONITORING MODULE) Tj
+T*
+() Tj
+T*
+(The monitoring module creates an Azure Log Analytics Workspace using SKUPerGB2018and default) Tj
+T*
+(retention of 30 days. The AKS module connects Container Insights to this workspace through) Tj
+T*
+(theoms_agentblock with managed identity authentication enabled.) Tj
+T*
+() Tj
+T*
+(4.5 KEY VAULT MODULE) Tj
+T*
+() Tj
+T*
+(The Key Vault module provisions a standard SKU vault with Azure RBAC authorization enabled. Soft) Tj
+T*
+(delete retention defaults to seven days, purge protection is disabled for dev convenience, and) Tj
+T*
+(public network access is currently enabled. The vault is intended as the central secure store) Tj
+T*
+(for pipeline tokens and future cluster secrets.) Tj
+T*
+() Tj
+T*
+(4.6 AZURE CONTAINER REGISTRY MODULE) Tj
+T*
+() Tj
+T*
+(A Basic SKU Azure Container Registry is created with admin user disabled. The AKS kubelet) Tj
+T*
+(identity is grantedAcrPullon this registry by the AKS module, allowing Kubernetes nodes to pull) Tj
+T*
+(images without static registry credentials.) Tj
+T*
+() Tj
+T*
+(4.7 AKS MODULE) Tj
+T*
+() Tj
+T*
+(The AKS cluster is configured with workload identity and OIDC issuer enabled. It uses a) Tj
+T*
+(system-assigned control plane identity, Azure CNI networking, Cilium network policy, Cilium data) Tj
+T*
+(plane, Standard load balancer, and outbound typeloadBalancer. The service CIDR) Tj
+T*
+(is10.200.0.0/16with DNS service IP10.200.0.10.) Tj
+T*
+() Tj
+T*
+(Node pools are split by function:) Tj
+T*
+() Tj
+T*
+(Pool | Mode | Default size | Role) Tj
+T*
+(system | System | Standard_B2als_v2, one node | Runs critical cluster add-ons only.) Tj
+T*
+(user | User | Standard_D2s_v4, autoscale min 3 max 5 | Runs application and platform workloads,) Tj
+T*
+(labeledworkload=apps.) Tj
+T*
+() Tj
+T*
+(The cluster uses automatic patch upgrades and ignores drift on Kubernetes version and node) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 13 0 R >>
+endobj
+13 0 obj
+<< /Length 2261 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+(counts, which is useful when AKS or autoscaling changes these values outside Terraform.) Tj
+T*
+() Tj
+T*
+(4.8 AZURE SERVICE BUS MODULE) Tj
+T*
+() Tj
+T*
+(The Service Bus module creates a Basic SKU namespace with minimum TLS version 1.2. Public) Tj
+T*
+(network access and local authentication are currently enabled, but the application manifests are) Tj
+T*
+(designed to authenticate with Azure AD through workload identity. The environment creates a) Tj
+T*
+(single queue namedorders.) Tj
+T*
+() Tj
+T*
+(Queue behavior:) Tj
+T*
+() Tj
+T*
+(- max_delivery_count = 10, after which messages move toward dead-letter handling.) Tj
+T*
+(- dead_lettering_on_message_expiration = true.) Tj
+T*
+(- default_message_ttl = P14D, so messages expire after 14 days.) Tj
+T*
+(- lock_duration = PT1M, giving consumers a one-minute lock window.) Tj
+T*
+() Tj
+T*
+(4.9 WORKLOAD IDENTITY MODULE) Tj
+T*
+() Tj
+T*
+(Two user-assigned managed identities are created. Each identity has a federated identity) Tj
+T*
+(credential whose subject matches a Kubernetes service account:) Tj
+T*
+() Tj
+T*
+(Service | Kubernetes ServiceAccount | Azure Role | Scope) Tj
+T*
+(orders-service | asbdemo/orders-sa | Azure Service Bus Data Sender | ordersqueue resource ID) Tj
+T*
+(payments-service | asbdemo/payments-sa | Azure Service Bus Data Receiver | ordersqueue resource) Tj
+T*
+(ID) Tj
+T*
+() Tj
+T*
+(This is a least-privilege split: the producer can send but not receive, and the consumer can) Tj
+T*
+(receive but not send.) Tj
+T*
+() Tj
+T*
+(5. SPRING BOOT MICROSERVICES) Tj
+T*
+() Tj
+T*
+(Theapp/directory is a Maven multi-module project. The parent POM defines Java 21, Spring Boot) Tj
+T*
+(3.3.5, Spring Cloud Azure dependency management 5.18.0, and the Logstash Logback encoder) Tj
+T*
+(version. Both child services include Spring Web, Actuator, Azure Service Bus client, Azure) Tj
+T*
+(Identity, Micrometer Prometheus registry, structured logging, and Spring Boot test dependencies.) Tj
+T*
+() Tj
+T*
+(5.1 ORDERS-SERVICE) Tj
+T*
+() Tj
+T*
+(orders-serviceis the producer. It exposes one primary endpoint:) Tj
+T*
+() Tj
+T*
+(POST /orders) Tj
+T*
+(Content-Type: application/json) Tj
+T*
+() Tj
+T*
+({) Tj
+T*
+(  "amount": 125.50,) Tj
+T*
+(  "customer": "customer-name") Tj
+T*
+(}) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 15 0 R >>
+endobj
+15 0 obj
+<< /Length 2992 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+(The controller creates anOrderEventcontaining a generated UUID order ID, amount, customer, and) Tj
+T*
+(creation timestamp. It then callsOrderPublisher.publishand returns HTTP 202 Accepted with the) Tj
+T*
+(generatedorderId.) Tj
+T*
+() Tj
+T*
+(TheOrderPublisherserializes the event with Jackson, creates aServiceBusMessage, sets the content) Tj
+T*
+(type toapplication/json, sets the message ID to the order ID, sends the message, and logs the) Tj
+T*
+(publish event. The service also registers a custom Micrometer counter) Tj
+T*
+(namedorders_published_total.) Tj
+T*
+() Tj
+T*
+(Service Bus connectivity is defined inServiceBusConfig. It builds) Tj
+T*
+(aServiceBusSenderClientusingDefaultAzureCredentialBuilder, the configured namespace FQDN, and) Tj
+T*
+(the queue name. In AKS,DefaultAzureCredentialresolves through workload identity. Locally, it can) Tj
+T*
+(resolve through service principal environment variables provided in Docker Compose.) Tj
+T*
+() Tj
+T*
+(5.2 PAYMENTS-SERVICE) Tj
+T*
+() Tj
+T*
+(payments-serviceis the consumer. It creates aServiceBusProcessorClientfor the same queue) Tj
+T*
+(usingDefaultAzureCredentialBuilder. The processor is started from anApplicationRunnerwhen the) Tj
+T*
+(Spring Boot application starts.) Tj
+T*
+() Tj
+T*
+(The processor usesmaxConcurrentCalls\(4\), allowing up to four messages to be processed) Tj
+T*
+(concurrently. Each message body is deserialized into the sharedOrderEventshape. Successful) Tj
+T*
+(messages are logged, counted throughorders_processed_total, and completed withctx.complete\(\).) Tj
+T*
+(Failed messages are logged, counted throughorders_failed_total, and abandoned withctx.abandon\(\),) Tj
+T*
+(allowing Service Bus redelivery until max delivery behavior is reached.) Tj
+T*
+() Tj
+T*
+(5.3 COMMON RUNTIME CONFIGURATION) Tj
+T*
+() Tj
+T*
+(Both services run on port 8080 and enable graceful shutdown. Actuator) Tj
+T*
+(exposeshealth,info,prometheus, andmetrics. Kubernetes probes use the actuator liveness and) Tj
+T*
+(readiness endpoints. Metrics include anapplicationtag set to the Spring application name.) Tj
+T*
+() Tj
+T*
+(Service Bus configuration is supplied through environment variables:) Tj
+T*
+() Tj
+T*
+(- SERVICEBUS_NAMESPACE_FQDN, for examplesb-asbdemo-dev-sin-znsc.servicebus.windows.net.) Tj
+T*
+(- SERVICEBUS_QUEUE_NAME, defaulting toorders.) Tj
+T*
+() Tj
+T*
+(Logging switches by profile. In thelocalprofile, logs are console-pattern text. In non-local) Tj
+T*
+(profiles, logs are JSON usingLogstashEncoder, with customappfield and MDC keys) Tj
+T*
+(fortraceIdandspanId.) Tj
+T*
+() Tj
+T*
+(6. AZURE SERVICE BUS MESSAGING FLOW) Tj
+T*
+() Tj
+T*
+(- An external caller sendsPOST /ordersthrough the Gateway API route or directly to the service) Tj
+T*
+(inside the cluster.) Tj
+T*
+(- orders-servicevalidates and accepts the request body, creates anOrderEvent, and sends it to) Tj
+T*
+(theordersqueue.) Tj
+T*
+(- Azure Service Bus stores the message durably in the queue until a consumer locks and completes) Tj
+ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 17 0 R >>
+endobj
+17 0 obj
+<< /Length 2797 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+(it.) Tj
+T*
+(- payments-servicehas an active processor client listening on the queue.) Tj
+T*
+(- The processor receives a message, deserializes it, logs the order,) Tj
+T*
+(incrementsorders_processed_total, and completes the message.) Tj
+T*
+(- If processing fails, the consumer incrementsorders_failed_totaland abandons the message,) Tj
+T*
+(allowing retry according to Service Bus delivery behavior.) Tj
+T*
+() Tj
+T*
+(The queue is used as a decoupling layer.orders-serviceonly needs to publish successfully; it) Tj
+T*
+(does not depend onpayments-servicebeing healthy at the same moment. This is the central) Tj
+T*
+(resilience pattern demonstrated by the project.) Tj
+T*
+() Tj
+T*
+(7. CONTAINERIZATION) Tj
+T*
+() Tj
+T*
+(Each service has a Dockerfile using a two-stage build. The build stage) Tj
+T*
+(usesmaven:3.9.9-eclipse-temurin-21, copies the parent and child POM files first, resolves) Tj
+T*
+(dependencies with BuildKit cache mounts, then copies source and packages the selected Maven) Tj
+T*
+(module. The runtime stage useseclipse-temurin:21-jre.) Tj
+T*
+() Tj
+T*
+(Both runtime images installcurland CA certificates, download the OpenTelemetry Java agent) Tj
+T*
+(version2.11.0, create a non-root user with UID 10001, expose port 8080, and run with:) Tj
+T*
+() Tj
+T*
+(java -javaagent:/opt/opentelemetry-javaagent.jar \\) Tj
+T*
+(     -XX:+UseContainerSupport \\) Tj
+T*
+(     -XX:MaxRAMPercentage=75 \\) Tj
+T*
+(     -jar /app/app.jar) Tj
+T*
+() Tj
+T*
+(Local Docker Compose builds both images from theapp/context. It maps orders to host port 8080) Tj
+T*
+(and payments to host port 8081. It expects Azure credentials and Service Bus settings in a) Tj
+T*
+(local.envfile based on.env.example. The orders container waits for the payments health check) Tj
+T*
+(before starting, which is convenient for a local demo even though the production queue decouples) Tj
+T*
+(them.) Tj
+T*
+() Tj
+T*
+(8. AKS WORKLOAD DEPLOYMENT WITH GITOPS) Tj
+T*
+() Tj
+T*
+(The workload GitOps entrypoint isgitops/workloads/envs/dev/kustomization.yaml. It sets) Tj
+T*
+(namespaceasbdemo, includes the namespace, Gateway, PrometheusRule, Grafana dashboard, orders) Tj
+T*
+(service resources, and payments service resources. It also controls the currently deployed image) Tj
+T*
+(tags through Kustomize image overrides.) Tj
+T*
+() Tj
+T*
+(At the time this document was generated, the dev overlay points both images at) Tj
+T*
+(tag1d986ecinacrasbdemodevsin.azurecr.io. CI updates those tags after successful image builds on) Tj
+T*
+(pushes tomain.) Tj
+T*
+() Tj
+T*
+(8.1 ORDERS-SERVICE KUBERNETES RESOURCES) Tj
+T*
+() Tj
+T*
+(- ServiceAccount orders-saannotated with the Azure managed identity client ID for the sender) Tj
+T*
+(identity.) Tj
+T*
+(- Rollout orders-servicewith two replicas and a canary strategy.) Tj
+ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 19 0 R >>
+endobj
+19 0 obj
+<< /Length 3040 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+(- Service orders-serviceexposing port 80 to target porthttpon container port 8080.) Tj
+T*
+(- ServiceMonitor orders-servicescraping/actuator/prometheusevery 15 seconds.) Tj
+T*
+(- AnalysisTemplate success-ratequerying Prometheus for HTTP success rate during canary rollout.) Tj
+T*
+() Tj
+T*
+(8.2 PAYMENTS-SERVICE KUBERNETES RESOURCES) Tj
+T*
+() Tj
+T*
+(- ServiceAccount payments-saannotated with the Azure managed identity client ID for the receiver) Tj
+T*
+(identity.) Tj
+T*
+(- Rollout payments-servicewith one replica and a blue-green strategy.) Tj
+T*
+(- Service payments-serviceas the active service.) Tj
+T*
+(- Service payments-service-previewas the preview service for blue-green promotion.) Tj
+T*
+(- ServiceMonitor payments-servicescraping/actuator/prometheusevery 15 seconds.) Tj
+T*
+() Tj
+T*
+(8.3 POD RUNTIME SETTINGS) Tj
+T*
+() Tj
+T*
+(Both services request100mCPU and384Mimemory, with limits of500mCPU and512Mimemory. They define) Tj
+T*
+(startup, readiness, and liveness probes against Spring Boot actuator endpoints. Each pod has a) Tj
+T*
+(40-second termination grace period and a five-second pre-stop sleep to give the service time to) Tj
+T*
+(drain during rollout transitions.) Tj
+T*
+() Tj
+T*
+(Both deployments set OpenTelemetry environment variables that send traces over OTLP gRPC) Tj
+T*
+(tojaeger.jaeger.svc.cluster.local:4317. Metrics and logs exporters are disabled in the) Tj
+T*
+(OpenTelemetry agent configuration because Prometheus scrapes metrics directly and Fluentd ships) Tj
+T*
+(container logs.) Tj
+T*
+() Tj
+T*
+(9. GATEWAY API AND TRAFFIC MANAGEMENT) Tj
+T*
+() Tj
+T*
+(The platform installs Gateway API standard CRDs and NGINX Gateway Fabric. The workload overlay) Tj
+T*
+(defines anNginxProxy, aGateway, and anHTTPRoute. The Gateway listens on HTTP port 80 and allows) Tj
+T*
+(routes from the same namespace. The HTTPRoute is namedorders, uses hostnameorders.asbdemo.local,) Tj
+T*
+(matches path prefix/orders, and sends traffic toorders-serviceon port 80.) Tj
+T*
+() Tj
+T*
+(NGINX Gateway Fabric is currently configured with ClusterIP services. That fits an internal or) Tj
+T*
+(port-forwarded dev setup. For internet-facing access, the NGINX service or Gateway) Tj
+T*
+(infrastructure would need to expose a public load balancer or be integrated with an) Tj
+T*
+(ingress/load-balancer pattern appropriate for the target environment.) Tj
+T*
+() Tj
+T*
+(10. PROGRESSIVE DELIVERY WITH ARGO ROLLOUTS) Tj
+T*
+() Tj
+T*
+(10.1 ORDERS-SERVICE CANARY) Tj
+T*
+() Tj
+T*
+(orders-serviceuses a canary rollout with weight steps of 25%, 50%, and 75%, each followed by a) Tj
+T*
+(30-second pause. Starting at step 1, Argo Rollouts runs thesuccess-rateAnalysisTemplate. The) Tj
+T*
+(Prometheus query calculates the ratio of non-5xx HTTP requests to total HTTP requests for the) Tj
+T*
+(service over two minutes and treats empty data as success withor vector\(1\). The rollout succeeds) Tj
+T*
+(when the result is at least 0.95 and fails after three failed checks.) Tj
+T*
+() Tj
+T*
+(10.2 PAYMENTS-SERVICE BLUE-GREEN) Tj
+ET
+endstream
+endobj
+20 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 21 0 R >>
+endobj
+21 0 obj
+<< /Length 2820 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+() Tj
+T*
+(payments-serviceuses blue-green deployment with an active service and preview service.) Tj
+T*
+(Auto-promotion is disabled, so a new version can be observed through the preview service before) Tj
+T*
+(being promoted. The old replica set is retained for 60 seconds after promotion before) Tj
+T*
+(scale-down.) Tj
+T*
+() Tj
+T*
+(11. MONITORING, LOGGING, AND TRACING) Tj
+T*
+() Tj
+T*
+(11.1 PROMETHEUS AND GRAFANA) Tj
+T*
+() Tj
+T*
+(The platform app installskube-prometheus-stackinto namespacemonitoring. The Helm values are) Tj
+T*
+(tuned for a dev cluster: default rules are disabled, Prometheus retention is six hours,) Tj
+T*
+(persistent storage is disabled, admission webhooks and TLS for the operator are disabled, and) Tj
+T*
+(Grafana uses a ClusterIP service with dashboard sidecar enabled across all namespaces.) Tj
+T*
+() Tj
+T*
+(The application ServiceMonitors make Prometheus scrape both Spring Boot apps) Tj
+T*
+(at/actuator/prometheus. Custom application metrics include:) Tj
+T*
+() Tj
+T*
+(- orders_published_total, incremented by orders-service after a successful publish call.) Tj
+T*
+(- orders_processed_total, incremented by payments-service after a successful message completion.) Tj
+T*
+(- orders_failed_total, incremented by payments-service when a message fails processing.) Tj
+T*
+() Tj
+T*
+(11.2 GRAFANA DASHBOARD) Tj
+T*
+() Tj
+T*
+(The workload overlay includes a Grafana dashboard ConfigMap labeledgrafana_dashboard=1. The) Tj
+T*
+(dashboard,asbdemo overview, refreshes every 30 seconds and includes panels for order publish) Tj
+T*
+(rate, order process rate, failure rate, Service Bus active queue depth, throughput comparison,) Tj
+T*
+(HTTP 5xx rate, and JVM heap utilization.) Tj
+T*
+() Tj
+T*
+(11.3 PROMETHEUS ALERTS) Tj
+T*
+() Tj
+T*
+(Alert | Condition | Intent) Tj
+T*
+(AsbdemoHighErrorRate | 5xx ratio above 1% for five minutes | Detect API instability.) Tj
+T*
+(AsbdemoHighLatency | p95 HTTP latency above 500 ms for five minutes | Detect slow user-facing) Tj
+T*
+(requests.) Tj
+T*
+(AsbdemoJvmHeapHigh | Heap usage above 90% for ten minutes | Detect memory pressure in the JVM.) Tj
+T*
+(AsbdemoNoOrdersPublished | No order publishes in 15 minutes during business hours | Catch) Tj
+T*
+(unexpected traffic silence.) Tj
+T*
+(AsbdemoOrdersFailedSpike | Payment failure rate above 0.5 orders per second for five minutes |) Tj
+T*
+(Catch consumer-side processing problems.) Tj
+T*
+() Tj
+T*
+(11.4 TRACING WITH JAEGER) Tj
+T*
+() Tj
+T*
+(The platform installs Jaeger chart version 4.7.0 in all-in-one mode with memory storage and OTLP) Tj
+T*
+(enabled. Application containers include the OpenTelemetry Java agent and send traces to Jaeger) Tj
+T*
+(over OTLP gRPC. This gives request and client spans without adding tracing code directly to the) Tj
+T*
+(Spring Boot services.) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+22 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 23 0 R >>
+endobj
+23 0 obj
+<< /Length 3159 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+(11.5 LOGGING WITH ECK, ELASTICSEARCH, KIBANA, AND FLUENTD) Tj
+T*
+() Tj
+T*
+(The platform installs the ECK operator and then applies local Elasticsearch/Kibana/Fluentd) Tj
+T*
+(resources. Elasticsearch runs version 8.16.1 as a single node with a 5 Gi persistent volume and) Tj
+T*
+(JVM heap set to 512 Mi. Kibana runs version 8.16.1 and connects to that Elasticsearch cluster.) Tj
+T*
+() Tj
+T*
+(Fluentd runs as a DaemonSet on the AKS user node pool. It tails/var/log/containers/*.log, parses) Tj
+T*
+(CRI log format, enriches records with Kubernetes metadata, attempts to parse the Spring JSON log) Tj
+T*
+(message, and ships records to Elasticsearch using logstash-style indices with prefixasbdemo. It) Tj
+T*
+(reads the Elasticsearch password from the ECK-generatedelasticsearch-es-elastic-usersecret.) Tj
+T*
+() Tj
+T*
+(12. CI/CD AUTOMATION) Tj
+T*
+() Tj
+T*
+(12.1 GITHUB ACTIONS APPLICATION PIPELINE) Tj
+T*
+() Tj
+T*
+(Theapp-ciworkflow runs on pull requests and pushes tomainthat touch application files. It) Tj
+T*
+(computes a seven-character image tag from the Git SHA, builds both Docker images with Docker) Tj
+T*
+(Buildx, scans them with Trivy for HIGH and CRITICAL vulnerabilities, logs in to Azure using OIDC) Tj
+T*
+(on pushes, pushes images to ACR, and then updates the GitOps Kustomize image tags.) Tj
+T*
+() Tj
+T*
+(The GitOps bump job installs Kustomize 5.4.3, runskustomize edit set imagefor both services,) Tj
+T*
+(commitsgitops/workloads/envs/dev/kustomization.yaml, and pushes back to the repository. This) Tj
+T*
+(commit is the handoff point from CI to ArgoCD.) Tj
+T*
+() Tj
+T*
+(12.2 GITHUB ACTIONS TERRAFORM PIPELINE) Tj
+T*
+() Tj
+T*
+(The Terraform workflow runs on infrastructure changes. It performsterraform fmt -check,) Tj
+T*
+(initializes without backend for validation, validates the stack, runs a full plan through HCP) Tj
+T*
+(Terraform, and posts the plan outcome to a pull request or commit. Applies run only on pushes) Tj
+T*
+(tomainand are protected by theazure-devGitHub environment.) Tj
+T*
+() Tj
+T*
+(12.3 AZURE DEVOPS PIPELINE MIRRORS) Tj
+T*
+() Tj
+T*
+(The repository also includes Azure DevOps equivalents. The app pipeline builds, scans, pushes to) Tj
+T*
+(ACR, fetches a GitHub PAT from Key Vault, and commits the GitOps image bump. The Terraform) Tj
+T*
+(pipeline installs Terraform, fetches the HCP Terraform token from Key Vault, validates, plans,) Tj
+T*
+(and applies from an environment-gated deployment job. These files provide an alternate CI/CD) Tj
+T*
+(implementation while preserving the same delivery model.) Tj
+T*
+() Tj
+T*
+(13. SECURITY AND IDENTITY MODEL) Tj
+T*
+() Tj
+T*
+(The strongest security design in the project is the use of short-lived federated identities) Tj
+T*
+(rather than static secrets for core automation and application access.) Tj
+T*
+() Tj
+T*
+(- HCP Terraform can authenticate to Azure through OIDC federation, as described in the runbook.) Tj
+T*
+(- GitHub Actions uses Azure OIDC login for ACR push operations.) Tj
+T*
+(- AKS has OIDC issuer and workload identity enabled.) Tj
+T*
+(- Each application pod uses a dedicated Kubernetes service account annotated with the correct) Tj
+ET
+endstream
+endobj
+24 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 25 0 R >>
+endobj
+25 0 obj
+<< /Length 2664 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+(Azure managed identity client ID.) Tj
+T*
+(- Service Bus access is split by role: sender for orders, receiver for payments.) Tj
+T*
+(- ACR admin user is disabled, and AKS image pull uses the kubelet identity withAcrPull.) Tj
+T*
+(- Spring services useDefaultAzureCredential, allowing the same code to work in local service) Tj
+T*
+(principal mode and AKS workload identity mode.) Tj
+T*
+() Tj
+T*
+(Dev-oriented tradeoffs are visible in the code: Key Vault public access is enabled, Service Bus) Tj
+T*
+(public access and local auth are enabled, Grafana uses a static admin password ofadmin, and) Tj
+T*
+(several services are ClusterIP rather than externally secured endpoints. Those choices are) Tj
+T*
+(understandable for a demo/dev stack but should be tightened for shared or production) Tj
+T*
+(environments.) Tj
+T*
+() Tj
+T*
+(14. OPERATIONAL RUNBOOK) Tj
+T*
+() Tj
+T*
+(14.1 FIRST-TIME INFRASTRUCTURE FLOW) Tj
+T*
+() Tj
+T*
+(- Create Azure AD app registration and service principal for Terraform automation.) Tj
+T*
+(- GrantContributorandUser Access Administratorat subscription scope, as required for resource) Tj
+T*
+(creation and role assignments.) Tj
+T*
+(- Create federated credentials for HCP Terraform plan and apply subjects.) Tj
+T*
+(- Configure HCP Terraform workspace environment) Tj
+T*
+(variables:TFC_AZURE_PROVIDER_AUTH,TFC_AZURE_RUN_CLIENT_ID,ARM_SUBSCRIPTION_ID, andARM_TENANT_ID.) Tj
+T*
+(- Set the HCP Terraform working directory toinfra/envs/azure-dev.) Tj
+T*
+(- Runterraform init,terraform plan, andterraform apply.) Tj
+T*
+() Tj
+T*
+(14.2 ARGOCD BOOTSTRAP) Tj
+T*
+() Tj
+T*
+(The bootstrap script installs ArgoCD chart version 7.6.12 into namespaceargocdusing the provided) Tj
+T*
+(values file. It then applies two root applications:) Tj
+T*
+() Tj
+T*
+(- workloads-dev, pointing togitops/workloads/envs/dev.) Tj
+T*
+(- platform-root, pointing togitops/platform/apps.) Tj
+T*
+() Tj
+T*
+(Both applications use automated sync, pruning, and self-healing. The workload application also) Tj
+T*
+(usesCreateNamespace=true.) Tj
+T*
+() Tj
+T*
+(14.3 USEFUL OPERATOR COMMANDS) Tj
+T*
+() Tj
+T*
+(az aks get-credentials -g rg-asbdemo-dev-sin -n aks-asbdemo-dev-sin --overwrite-existing) Tj
+T*
+() Tj
+T*
+(kubectl -n argocd get applications) Tj
+T*
+(kubectl -n asbdemo get rollout,pods,svc) Tj
+T*
+(kubectl -n asbdemo describe rollout orders-service) Tj
+T*
+(kubectl -n asbdemo describe rollout payments-service) Tj
+T*
+() Tj
+T*
+(kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80) Tj
+T*
+(kubectl -n jaeger port-forward svc/jaeger-query 16686:16686) Tj
+T*
+(kubectl -n elastic-system port-forward svc/kibana-kb-http 5601:5601) Tj
+ET
+endstream
+endobj
+26 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 27 0 R >>
+endobj
+27 0 obj
+<< /Length 2805 >>
+stream
+BT
+/F1 10.5 Tf
+14 TL
+1 0 0 1 54 738 Tm
+() Tj
+T*
+(15. CURRENT IMPLEMENTATION NOTES AND RECOMMENDED NEXT STEPS) Tj
+T*
+(Validation performed while generating this document:the workload, platform apps, and elastic) Tj
+T*
+(kustomizations all rendered successfully withkubectl kustomize.) Tj
+T*
+(- No Java unit or integration tests are currently present underapp/**/src/test. Adding) Tj
+T*
+(controller tests, serialization tests, and Service Bus client boundary tests would improve) Tj
+T*
+(confidence.) Tj
+T*
+(- The README mentions cert-manager and TLS, and cert-manager is installed, but the current) Tj
+T*
+(workload manifests only define an HTTP listener and no ClusterIssuer, Certificate, or HTTPS) Tj
+T*
+(Gateway listener.) Tj
+T*
+(- The Gateway and platform services are mostly ClusterIP, which is appropriate for a private dev) Tj
+T*
+(setup. External access requires additional load balancer or ingress exposure work.) Tj
+T*
+(- Service Bus local auth and public network access are enabled in Terraform. For production,) Tj
+T*
+(consider disabling local auth after confirming Azure AD-only access, and restrict network access) Tj
+T*
+(through private endpoints or firewall rules.) Tj
+T*
+(- Kubernetes ServiceAccount annotations currently contain concrete client IDs, and workload) Tj
+T*
+(manifests contain concrete Service Bus FQDN and ACR names. A stronger multi-environment design) Tj
+T*
+(would template these through overlays or generated configuration.) Tj
+T*
+(- Grafana uses the demo passwordadminand has no persistence. For longer-lived environments, move) Tj
+T*
+(credentials to a secret manager and enable persistent storage.) Tj
+T*
+(- The Grafana dashboard referencesservicebus_queue_active_messages. That metric requires an) Tj
+T*
+(exporter or Azure Monitor integration to be present; the current codebase does not define a) Tj
+T*
+(Service Bus exporter.) Tj
+T*
+(- The Terraform Key Vault is provisioned and used by Azure DevOps pipeline documentation, but) Tj
+T*
+(the Kubernetes workloads are not yet wired to Key Vault CSI in the current manifests.) Tj
+T*
+() Tj
+T*
+(CONCLUSION) Tj
+T*
+() Tj
+T*
+(The repository implements a coherent cloud-native platform demonstration: infrastructure is) Tj
+T*
+(reproducible, application delivery follows GitOps, workloads use managed identity to access) Tj
+T*
+(Service Bus, rollouts are progressive, and observability spans metrics, logs, dashboards,) Tj
+T*
+(alerts, and traces. The project is already strong as a dev/demo reference architecture. The) Tj
+T*
+(biggest next steps for production hardening are test coverage, TLS and external gateway) Tj
+T*
+(exposure, secret and credential hardening, and making environment-specific values less hardcoded) Tj
+T*
+(in workload manifests.) Tj
+T*
+() Tj
+T*
+(Generated from repository code and manifests on 2026-05-02.) Tj
+ET
+endstream
+endobj
+xref
+0 28
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000197 00000 n 
+0000000267 00000 n 
+0000000393 00000 n 
+0000003123 00000 n 
+0000003249 00000 n 
+0000005964 00000 n 
+0000006090 00000 n 
+0000009225 00000 n 
+0000009353 00000 n 
+0000012038 00000 n 
+0000012166 00000 n 
+0000014480 00000 n 
+0000014608 00000 n 
+0000017653 00000 n 
+0000017781 00000 n 
+0000020631 00000 n 
+0000020759 00000 n 
+0000023852 00000 n 
+0000023980 00000 n 
+0000026853 00000 n 
+0000026981 00000 n 
+0000030193 00000 n 
+0000030321 00000 n 
+0000033038 00000 n 
+0000033166 00000 n 
+trailer
+<< /Size 28 /Root 1 0 R >>
+startxref
+36024
+%%EOF

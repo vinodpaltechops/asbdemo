@@ -1,6 +1,11 @@
 data "azurerm_client_config" "current" {}
 data "azurerm_subscription" "current" {}
 
+locals {
+  # Absolute paths to modules - works with both terraform and terragrunt
+  modules_dir = "${path.module}/../../modules"
+}
+
 resource "azurerm_resource_group" "main" {
   name     = local.names.rg
   location = var.location
@@ -8,7 +13,7 @@ resource "azurerm_resource_group" "main" {
 }
 
 module "monitoring" {
-  source = "../../modules/monitoring"
+  source = "${local.modules_dir}/monitoring"
 
   name                = local.names.law
   resource_group_name = azurerm_resource_group.main.name
@@ -18,7 +23,7 @@ module "monitoring" {
 }
 
 module "network" {
-  source = "../../modules/network"
+  source = "${local.modules_dir}/network"
 
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
@@ -30,7 +35,7 @@ module "network" {
 }
 
 module "keyvault" {
-  source = "../../modules/keyvault"
+  source = "${local.modules_dir}/keyvault"
 
   name                = local.names.kv
   resource_group_name = azurerm_resource_group.main.name
@@ -40,7 +45,7 @@ module "keyvault" {
 }
 
 module "acr" {
-  source = "../../modules/acr"
+  source = "${local.modules_dir}/acr"
 
   name                = local.names.acr
   resource_group_name = azurerm_resource_group.main.name
@@ -50,7 +55,7 @@ module "acr" {
 }
 
 module "aks" {
-  source = "../../modules/aks"
+  source = "${local.modules_dir}/aks"
 
   name                = local.names.aks
   dns_prefix          = local.names.aks_dns_prefix
@@ -72,7 +77,7 @@ module "aks" {
 }
 
 module "servicebus" {
-  source = "../../modules/servicebus"
+  source = "${local.modules_dir}/servicebus"
 
   namespace_name      = local.names.sb
   resource_group_name = azurerm_resource_group.main.name
@@ -84,7 +89,7 @@ module "servicebus" {
 
 # Workload identity for the orders (producer) service
 module "wi_orders" {
-  source = "../../modules/workload-identity"
+  source = "${local.modules_dir}/workload-identity"
 
   name                = local.names.mi_orders
   resource_group_name = azurerm_resource_group.main.name
@@ -105,7 +110,7 @@ module "wi_orders" {
 
 # Workload identity for the payments (consumer) service
 module "wi_payments" {
-  source = "../../modules/workload-identity"
+  source = "${local.modules_dir}/workload-identity"
 
   name                = local.names.mi_payments
   resource_group_name = azurerm_resource_group.main.name
