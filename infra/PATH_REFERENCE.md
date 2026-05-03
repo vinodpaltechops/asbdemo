@@ -76,8 +76,22 @@ modules_dir = "${repo_root}/infra/terraform/modules"
 
 ## Using the Setup
 
-### Direct Terraform (Pure, No Orchestration)
+### Recommended: Terragrunt (Backend + Provider Injection)
 ```bash
+# ONLY run terragrunt from terragrunt/envs/ directory
+cd /Users/vinodpal/Applications/aidevops/azureservicebus/infra/terragrunt/envs/dev
+
+terragrunt init
+terragrunt plan
+terragrunt apply
+
+# Check configuration
+terragrunt validate
+```
+
+### Alternative: Direct Terraform (Pure, No Backend Injection)
+```bash
+# Use pure Terraform from terraform/envs/ directory
 cd /Users/vinodpal/Applications/aidevops/azureservicebus/infra/terraform/envs/azure-dev
 
 terraform init
@@ -85,23 +99,11 @@ terraform plan
 terraform apply
 ```
 
-### With Terragrunt (Backend + Provider Injection)
-```bash
-cd /Users/vinodpal/Applications/aidevops/azureservicebus/infra/terraform/envs/azure-dev
-
-# Terragrunt generates backend_override.tf and provider_override.tf
-terragrunt init
-terragrunt plan
-terragrunt apply
-```
-
-Or from the Terragrunt directory:
-```bash
-cd /Users/vinodpal/Applications/aidevops/azureservicebus/infra/terragrunt/envs/dev
-
-# Check workspace config
-terragrunt validate
-```
+### Important: Path Rules
+✓ **DO** run terragrunt from: `/infra/terragrunt/envs/{dev,prod,hub}/`
+✗ **DO NOT** run terragrunt from: `/infra/terraform/envs/azure-{dev,prod,hub}/`
+✗ **DO NOT** add terragrunt.hcl to terraform directories
+✓ **Pure Terraform files** live in `/infra/terraform/` (no terragrunt.hcl)
 
 ## Environment Variable Reference
 
