@@ -101,3 +101,21 @@ variable "github_repo" {
   type        = string
   default     = "vinodpaltechops/asbdemo"
 }
+
+variable "dev_team_group_id" {
+  description = "Azure AD group ID for dev team (Contributor role). Leave empty to skip RBAC assignment."
+  type        = string
+  default     = ""
+}
+
+variable "prod_team_group_id" {
+  description = "Azure AD group ID for prod team leads (Owner role). Leave empty to skip RBAC assignment."
+  type        = string
+  default     = ""
+}
+
+variable "prod_ops_group_id" {
+  description = "Azure AD group ID for prod ops team (Reader role). Leave empty to skip RBAC assignment."
+  type        = string
+  default     = ""
+}
