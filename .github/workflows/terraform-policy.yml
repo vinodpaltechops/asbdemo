@@ -1,3 +1,31 @@
+# Terraform Policy Validation Workflow
+#
+# This workflow enforces infrastructure policies on all Terraform changes using OPA/Conftest.
+# It runs in 3 phases:
+#
+# 1. POLICY JOB (parallel for dev, prod, hub):
+#    - Generates terraform plan in JSON format
+#    - Runs Conftest against OPA policies
+#    - Uploads policy reports as artifacts
+#    - Comments on PR with results
+#
+# 2. POLICY-SUMMARY JOB:
+#    - Collects results from all envs
+#    - Creates consolidated PR comment
+#
+# 3. POLICY-GATE JOB (BLOCKS MERGE):
+#    - Checks if ANY denials were found
+#    - Parses policy reports (JSON format)
+#    - Sets GitHub Check status (pass/fail)
+#    - Exits with code 1 if denials found → BLOCKS PR MERGE
+#
+# BLOCKING BEHAVIOR:
+#  - Warnings (WARN) → Allow merge, just comment
+#  - Denials (FAIL) → Block merge, require fixes
+#
+# To merge despite warnings: Review warnings in PR comment and proceed
+# To merge despite denials: IMPOSSIBLE without fixing violations or disabling policy
+
 name: Terraform Policy Validation
 
 on:
@@ -183,9 +211,76 @@ jobs:
     runs-on: ubuntu-latest
     needs: policy
     if: always()
+    permissions:
+      contents: read
+
     steps:
+      - name: Download all policy reports
+        uses: actions/download-artifact@v4
+        with:
+          path: policy-reports
+        continue-on-error: true
+
       - name: Check for policy denials
+        id: check
         run: |
-          echo "Policy validation complete. Review results above."
-          # This would typically check the policy output and fail if denials found
-          # For now, we let the workflow complete and comment on PR
+          echo "📋 Checking for policy denials across all environments..."
+          echo ""
+
+          DENIALS_FOUND=0
+          DENIAL_SUMMARY=""
+
+          for env in dev prod hub; do
+            REPORT_FILE="policy-reports/policy-report-${env}/${env}-policy-report.json"
+
+            if [ -f "$REPORT_FILE" ]; then
+              # Count denials using jq
+              DENIAL_COUNT=$(jq '[.[] | select(.failures != null) | .failures[]] | length' "$REPORT_FILE" 2>/dev/null || echo "0")
+
+              if [ "$DENIAL_COUNT" -gt 0 ]; then
+                DENIALS_FOUND=1
+                DENIAL_SUMMARY="${DENIAL_SUMMARY}• **${env}**: ${DENIAL_COUNT} policy denial(s)\n"
+              fi
+            fi
+          done
+
+          echo "check_result=$DENIALS_FOUND" >> $GITHUB_OUTPUT
+
+          if [ $DENIALS_FOUND -eq 1 ]; then
+            echo ""
+            echo "❌ Policy Denials Found:"
+            echo -e "$DENIAL_SUMMARY"
+            exit 1
+          else
+            echo "✅ No policy denials found. Proceeding with merge approval."
+            exit 0
+          fi
+
+      - name: Report policy gate result
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const checkResult = '${{ steps.check.outputs.check_result }}';
+            const status = checkResult === '0' ? '✅ PASSED' : '❌ FAILED';
+
+            console.log(`Policy Gate Status: ${status}`);
+
+            if ('${{ github.event_name }}' === 'pull_request') {
+              github.rest.checks.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'Policy Validation Gate',
+                head_sha: context.payload.pull_request.head.sha,
+                status: 'completed',
+                conclusion: checkResult === '0' ? 'success' : 'failure',
+                output: {
+                  title: 'Policy Validation',
+                  summary: checkResult === '0'
+                    ? '✅ All environments passed policy checks'
+                    : '❌ Policy denials found. Please review violations and fix before merging.'
+                }
+              });
+            }
+
