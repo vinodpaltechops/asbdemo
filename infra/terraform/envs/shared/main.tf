@@ -38,10 +38,6 @@ resource "azurerm_resource_group" "main" {
   name     = local.names.rg
   location = var.location
   tags     = local.tags
-
-  lifecycle {
-    prevent_destroy = var.environment == "prod" ? true : false
-  }
 }
 
 module "monitoring" {
