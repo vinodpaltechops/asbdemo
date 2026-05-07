@@ -1,6 +1,88 @@
 data "azurerm_client_config" "current" {}
 data "azurerm_subscription" "current" {}
 
+# ════════════════════════════════════════════════════════════════════════════
+# EXTERNAL RESOURCES (Manually Created in Azure)
+# ════════════════════════════════════════════════════════════════════════════
+# Reference manually created resources without managing them via Terraform.
+# Uncomment and customize based on your actual external resources.
+# See: docs/TERRAFORM_STATE_MANAGEMENT.md for full examples.
+# ════════════════════════════════════════════════════════════════════════════
+
+# Example 1: Reference an external Storage Account
+# data "azurerm_storage_account" "external_db_storage" {
+#   name                = "myexternalstorage"          # Replace with actual name
+#   resource_group_name = "my-external-rg"             # Replace with actual RG
+# }
+
+# Example 2: Reference an external SQL Database
+# data "azurerm_mssql_server" "external_database" {
+#   name                = "my-sql-server"
+#   resource_group_name = "my-external-rg"
+# }
+#
+# data "azurerm_mssql_database" "external_database" {
+#   name            = "my-database"
+#   server_id       = data.azurerm_mssql_server.external_database.id
+# }
+
+# Example 3: Reference an external Virtual Network
+# data "azurerm_virtual_network" "external_vnet" {
+#   name                = "external-vnet"
+#   resource_group_name = "my-external-rg"
+# }
+#
+# data "azurerm_subnet" "external_subnet" {
+#   name                 = "app-subnet"
+#   virtual_network_name = data.azurerm_virtual_network.external_vnet.name
+#   resource_group_name  = "my-external-rg"
+# }
+
+# Example 4: Reference an external Resource Group
+# data "azurerm_resource_group" "external_rg" {
+#   name = "my-external-rg"
+# }
+
+# Example 5: Reference an external Key Vault
+# data "azurerm_key_vault" "external_vault" {
+#   name                = "my-external-vault"
+#   resource_group_name = "my-external-rg"
+# }
+
+# Example 6: Reference external App Service
+# data "azurerm_app_service" "external_app" {
+#   name                = "my-external-app"
+#   resource_group_name = "my-external-rg"
+# }
+
+# Example 7: Reference external Virtual Machine
+# data "azurerm_virtual_machine" "external_vm" {
+#   name                = "my-vm"
+#   resource_group_name = "my-external-rg"
+# }
+
+# Example 8: Reference external Network Security Group
+# data "azurerm_network_security_group" "external_nsg" {
+#   name                = "external-nsg"
+#   resource_group_name = "my-external-rg"
+# }
+
+# ════════════════════════════════════════════════════════════════════════════
+# USAGE: Once uncommented and configured, reference data sources like:
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Example: Use external database connection in app service configuration:
+#   app_settings = {
+#     DATABASE_SERVER = data.azurerm_mssql_server.external_database.fully_qualified_domain_name
+#     DATABASE_NAME   = data.azurerm_mssql_database.external_database.name
+#   }
+#
+# Example: Use external storage account in AKS pod mount:
+#   storage_account_name  = data.azurerm_storage_account.external_db_storage.name
+#   storage_account_key   = data.azurerm_storage_account.external_db_storage.primary_access_key
+#
+# ════════════════════════════════════════════════════════════════════════════
+
 locals {
   prefix        = "${var.app_name}-${var.environment}-${var.location_short}"
   prefix_nodash = "${var.app_name}${var.environment}${var.location_short}"
