@@ -11,6 +11,7 @@ generate "provider" {
   if_exists = "overwrite_terragrunt"
   contents  = <<-EOT
     provider "azurerm" {
+      use_oidc = true
       features {
         resource_group {
           prevent_deletion_if_contains_resources = false
@@ -22,7 +23,9 @@ generate "provider" {
       }
     }
 
-    provider "azuread" {}
+    provider "azuread" {
+      use_oidc = true
+    }
   EOT
 }
 

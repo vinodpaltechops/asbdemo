@@ -1,6 +1,10 @@
 locals {
   env         = read_terragrunt_config(find_in_parent_folders("env.hcl"))
-  environment = "dev"
+  environment = "hub"
+}
+
+terraform {
+  source = "../../../terraform//envs/azure-hub"
 }
 
 include "root" {
@@ -15,7 +19,7 @@ generate "backend" {
       cloud {
         organization = "${local.env.locals.org}"
         workspaces {
-          name = "${local.environment}"
+          name = "${local.env.locals.env_name_hub}"
         }
       }
     }

@@ -16,11 +16,12 @@ generate "backend" {
   if_exists = "overwrite_terragrunt"
   contents  = <<-EOT
     terraform {
-      cloud {
-        organization = "${local.env.locals.org}"
-        workspaces {
-          name = "${local.env.locals.env_name_dev}"
-        }
+      backend "azurerm" {
+        resource_group_name  = "${local.env.locals.backend_rg}"
+        storage_account_name = "${local.env.locals.backend_sa}"
+        container_name       = "tfstate-dev"
+        key                  = "dev.terraform.tfstate"
+        use_oidc             = true
       }
     }
   EOT

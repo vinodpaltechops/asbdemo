@@ -1,116 +1,292 @@
-name: terraform
+# Terraform Deployment Workflow
+#
+# Manages infrastructure deployment using Terraform + Terragrunt.
+# Uses Azure Storage Account for state (with OIDC auth).
+#
+# Workflow:
+#   PR on infra/: validate + plan (posted as PR comment)
+#   Push to main: validate + plan + apply (with approval gate)
+#
+# Authentication: GitHub OIDC → Azure Service Principal (no secrets)
+
+name: Terraform
 
 on:
   pull_request:
-    branches: [main]
     paths:
-      - "infra/**"
-      - ".github/workflows/terraform.yml"
+      - 'infra/**'
+      - '.github/workflows/terraform.yml'
+    branches:
+      - main
   push:
-    branches: [main]
     paths:
-      - "infra/**"
-      - ".github/workflows/terraform.yml"
+      - 'infra/**'
+      - '.github/workflows/terraform.yml'
+    branches:
+      - main
   workflow_dispatch:
 
-permissions:
-  contents: write      # needed for commit comments on push-to-main
-  pull-requests: write
-
 env:
-  TF_IN_AUTOMATION: "true"
-  TF_INPUT: "false"
-  # Non-interactive HCP login
-  TF_CLI_ARGS_init: "-input=false"
-  TF_CLI_ARGS_plan: "-input=false -no-color"
-  TF_CLI_ARGS_apply: "-input=false -no-color -auto-approve"
-  WORKING_DIR: infra/envs/azure-dev
+  TF_VERSION: "1.9.0"
+  TG_VERSION: "1.0.3"
+  WORKING_DIR: "infra/terragrunt/envs/dev"
 
 jobs:
-  fmt-validate:
-    # Swap to [self-hosted, linux, arc] if you want to use your ARC runner on EKS
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 1: Validate Terraform configuration syntax
+  # ─────────────────────────────────────────────────────────────────────────
+  validate:
+    name: Validate Configuration
     runs-on: ubuntu-latest
+    environment: azure-dev
+    permissions:
+      contents: read
+      id-token: write  # For OIDC token
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.14.8"
-          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_version: ${{ env.TF_VERSION }}
+          # No credentials needed for validate step (offline)
 
-      - name: terraform fmt
-        run: terraform -chdir=${{ env.WORKING_DIR }} fmt -check -recursive
-        working-directory: .
+      - name: Setup Terragrunt
+        run: |
+          wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TG_VERSION }}/terragrunt_linux_amd64
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
 
-      - name: terraform init (backend=false for validate)
-        run: terraform -chdir=${{ env.WORKING_DIR }} init -backend=false
+      - name: Terraform Format Check
+        working-directory: infra
+        run: |
+          terraform fmt -check -recursive
 
-      - name: terraform validate
-        run: terraform -chdir=${{ env.WORKING_DIR }} validate
+      - name: Terraform Validate
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terragrunt validate
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 2: Plan infrastructure changes
+  # ─────────────────────────────────────────────────────────────────────────
   plan:
-    needs: fmt-validate
+    name: Plan Deployment
     runs-on: ubuntu-latest
+    environment: azure-dev
+    needs: validate
+    permissions:
+      contents: read
+      id-token: write  # For OIDC token
+      pull-requests: write  # For PR comments
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.14.8"
-          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_version: ${{ env.TF_VERSION }}
 
-      - name: terraform init
-        run: terraform -chdir=${{ env.WORKING_DIR }} init
+      - name: Setup Terragrunt
+        run: |
+          wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TG_VERSION }}/terragrunt_linux_amd64
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
 
-      - name: terraform plan
-        id: plan
-        run: terraform -chdir=${{ env.WORKING_DIR }} plan -out=tfplan
+      - name: Azure OIDC Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          # token-format: 'access_token' - implicit from use-oidc
 
-      - name: Post plan outcome (PR comment or commit comment)
-        uses: actions/github-script@v7
-        if: always()
+      - name: Generate Terraform Plan
+        working-directory: ${{ env.WORKING_DIR }}
         env:
-          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: "true"
+        run: |
+          echo "=== Initializing Terraform with Azure Storage Backend ==="
+          terragrunt init
+
+          echo "=== Generating Plan ==="
+          terragrunt plan -out=tfplan
+
+      - name: Save Plan Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
+          name: tfplan
+          path: ${{ env.WORKING_DIR }}/tfplan
+          retention-days: 1
+
+      - name: Generate Plan Output (JSON)
+        if: always()
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: "true"
+        run: |
+          terraform show -json tfplan > tfplan.json
+
+          # Count resource changes
+          ADDS=$(jq '[.resource_changes[]|select(.change.actions|contains(["create"]))]|length' tfplan.json)
+          UPDATES=$(jq '[.resource_changes[]|select(.change.actions|contains(["update"]))]|length' tfplan.json)
+          DELETES=$(jq '[.resource_changes[]|select(.change.actions|contains(["delete"]))]|length' tfplan.json)
+
+          echo "PLAN_SUMMARY=Plan Summary: $ADDS to add, $UPDATES to modify, $DELETES to destroy" >> $GITHUB_ENV
+
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const outcome = process.env.PLAN_OUTCOME;
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `### Terraform plan (HCP workspace \`azure-dev\`)
-            - Outcome: **${outcome}**
-            - Full plan output: [view in HCP Terraform UI](https://app.terraform.io/app/vinod-techops-org/workspaces/azure-dev/runs)
-            - GitHub Actions logs: ${runUrl}
-            `;
-            if (context.eventName === 'pull_request') {
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body
-              });
-            } else if (context.eventName === 'push') {
-              await github.rest.repos.createCommitComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                commit_sha: context.sha,
-                body
-              });
+            const fs = require('fs');
+            const workingDir = '${{ env.WORKING_DIR }}';
+
+            let comment = '## 📋 Terraform Plan\n\n';
+
+            try {
+              const planOutput = fs.readFileSync(`${workingDir}/tfplan.json`, 'utf8');
+              const plan = JSON.parse(planOutput);
+
+              const adds = plan.resource_changes?.filter(r => r.change.actions.includes('create')).length || 0;
+              const updates = plan.resource_changes?.filter(r => r.change.actions.includes('update')).length || 0;
+              const deletes = plan.resource_changes?.filter(r => r.change.actions.includes('delete')).length || 0;
+
+              comment += `**Summary:** \`${adds}\` to add, \`${updates}\` to modify, \`${deletes}\` to destroy\n\n`;
+
+              if (deletes > 0) {
+                comment += '⚠️ **WARNING:** This plan includes resource deletions!\n\n';
+              }
+
+              comment += '<details>\n<summary>Show Plan Details</summary>\n\n```\n';
+
+              // Add resource changes summary
+              if (plan.resource_changes && plan.resource_changes.length > 0) {
+                comment += 'Resource Changes:\n';
+                plan.resource_changes.forEach(rc => {
+                  const action = rc.change.actions[0];
+                  const symbol = action === 'create' ? '✚' : action === 'delete' ? '✕' : '~';
+                  comment += `  ${symbol} ${rc.type}.${rc.name}\n`;
+                });
+              } else {
+                comment += 'No resource changes.\n';
+              }
+
+              comment += '```\n</details>\n';
+            } catch (e) {
+              comment += '⚠️ Could not parse plan. See workflow logs for details.\n';
             }
 
+            comment += '\n**Environment:** dev\n';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # JOB 3: Apply infrastructure changes (push to main only)
+  # ─────────────────────────────────────────────────────────────────────────
   apply:
+    name: Apply Deployment
+    runs-on: ubuntu-latest
+    environment: azure-dev
     needs: plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: azure-dev    # set required reviewers in GitHub Environments to gate apply
+    permissions:
+      contents: read
+      id-token: write  # For OIDC token
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.14.8"
-          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_version: ${{ env.TF_VERSION }}
 
-      - name: terraform init
-        run: terraform -chdir=${{ env.WORKING_DIR }} init
+      - name: Setup Terragrunt
+        run: |
+          wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TG_VERSION }}/terragrunt_linux_amd64
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
 
-      - name: terraform apply
-        run: terraform -chdir=${{ env.WORKING_DIR }} apply
+      - name: Azure OIDC Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIR }}
+
+      - name: Apply Terraform
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: "true"
+        run: |
+          echo "=== Applying Terraform Plan ==="
+          terragrunt apply -auto-approve tfplan
+
+          echo "=== Terraform State Summary ==="
+          terragrunt state list | head -20 || true
+
+      - name: Output Infrastructure Details
+        if: success()
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: "true"
+        run: |
+          echo "=== Terraform Outputs ==="
+          terragrunt output -no-color
+
+      - name: Notify Success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.commits.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: '✅ Terraform apply completed successfully!\n\nInfrastructure deployed to dev environment.'
+            });
+
+      - name: Notify Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.commits.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: '❌ Terraform apply failed!\n\nCheck workflow logs for details.'
+            });
