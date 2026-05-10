@@ -20,14 +20,18 @@ on:
         type: string
         default: 'app'
         description: 'Docker build context'
-      acr-username:
+      client-id:
         required: false
         type: string
-        description: 'ACR username (optional, for push)'
-      acr-password:
+        description: 'Azure Client ID for OIDC'
+      tenant-id:
         required: false
         type: string
-        description: 'ACR password (optional, for push)'
+        description: 'Azure Tenant ID for OIDC'
+      subscription-id:
+        required: false
+        type: string
+        description: 'Azure Subscription ID for OIDC'
     outputs:
       image-tag:
         description: 'Built image tag (short SHA)'
@@ -40,12 +44,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-      uri: ${{ steps.meta.outputs.uri }}
       image-tag: ${{ steps.meta.outputs.tag }}
       image-uri: ${{ steps.meta.outputs.uri }}
     permissions:
       contents: read
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,7 +64,6 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build image
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.context }}
@@ -80,12 +82,20 @@ jobs:
           exit-code: "0"
           ignore-unfixed: true
 
-      - name: ACR login (if credentials provided)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && inputs.acr-username != ''
-        run: |
-          echo "${{ inputs.acr-password }}" | docker login ${{ inputs.registry }} \
-            -u "${{ inputs.acr-username }}" \
-            --password-stdin
+      - name: Azure login (OIDC)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && inputs.client-id != ''
+        uses: azure/login@v2
+        with:
+          client-id: ${{ inputs.client-id }}
+          tenant-id: ${{ inputs.tenant-id }}
+          subscription-id: ${{ inputs.subscription-id }}
+          auth-type: SERVICE_PRINCIPAL
+
+      - name: ACR login via OIDC
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && inputs.client-id != ''
+        run: az acr login --name "${REGISTRY%%.*}"
+        env:
+          REGISTRY: ${{ inputs.registry }}
 
       - name: Push image to ACR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -97,7 +107,3 @@ jobs:
           push: true
           cache-from: type=gha,scope=${{ inputs.image-name }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image-name }}
-
-      - name: Logout from ACR
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: docker logout ${{ inputs.registry }} || true

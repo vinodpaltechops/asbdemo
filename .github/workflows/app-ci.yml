@@ -7,14 +7,12 @@ on:
       - "app/**"
       - ".github/workflows/app-ci.yml"
       - ".github/workflows/docker-build-push.yml"
-      - ".github/actions/**"
   push:
     branches: [main]
     paths:
       - "app/**"
       - ".github/workflows/app-ci.yml"
       - ".github/workflows/docker-build-push.yml"
-      - ".github/actions/**"
   workflow_dispatch:
 
 permissions:
@@ -26,67 +24,32 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # Fetch secrets from Key Vault (only on push to main)
-  # ─────────────────────────────────────────────────────────────
-  fetch-secrets:
-    name: Fetch ACR Credentials from Key Vault
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    outputs:
-      acr-username: ${{ steps.secrets.outputs.acr-user }}
-      acr-password: ${{ steps.secrets.outputs.acr-pass }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure login & fetch secrets
-        uses: ./.github/actions/azure-login-vault
-        id: vault
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          key-vault-name: ${{ vars.AZURE_KEY_VAULT_NAME }}
-          secret-names: 'acr-admin-user,acr-admin-password'
-
-      - name: Extract secrets
-        id: secrets
-        run: |
-          SECRETS='${{ steps.vault.outputs.secrets-json }}'
-          echo "acr-user=$(echo "$SECRETS" | jq -r '."acr-admin-user"')" >> "$GITHUB_OUTPUT"
-          echo "acr-pass=$(echo "$SECRETS" | jq -r '."acr-admin-password"')" >> "$GITHUB_OUTPUT"
-
-  # ─────────────────────────────────────────────────────────────
   # Build and scan orders-service image using reusable workflow
   # ─────────────────────────────────────────────────────────────
   build-orders:
     name: Build & Scan Orders Service
-    needs: [fetch-secrets]
-    if: always()
     uses: ./.github/workflows/docker-build-push.yml
     with:
       dockerfile-path: app/orders-service/Dockerfile
       image-name: orders-service
       registry: ${{ vars.ACR_LOGIN_SERVER }}
-      acr-username: ${{ needs.fetch-secrets.outputs.acr-username }}
-      acr-password: ${{ needs.fetch-secrets.outputs.acr-password }}
+      client-id: ${{ vars.AZURE_CLIENT_ID }}
+      tenant-id: ${{ vars.AZURE_TENANT_ID }}
+      subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
   # ─────────────────────────────────────────────────────────────
   # Build and scan payments-service image using reusable workflow
   # ─────────────────────────────────────────────────────────────
   build-payments:
     name: Build & Scan Payments Service
-    needs: [fetch-secrets]
-    if: always()
     uses: ./.github/workflows/docker-build-push.yml
     with:
       dockerfile-path: app/payments-service/Dockerfile
       image-name: payments-service
       registry: ${{ vars.ACR_LOGIN_SERVER }}
-      acr-username: ${{ needs.fetch-secrets.outputs.acr-username }}
-      acr-password: ${{ needs.fetch-secrets.outputs.acr-password }}
+      client-id: ${{ vars.AZURE_CLIENT_ID }}
+      tenant-id: ${{ vars.AZURE_TENANT_ID }}
+      subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
   # ─────────────────────────────────────────────────────────────
   # Update GitOps manifests with new image tags (after push to ACR)
