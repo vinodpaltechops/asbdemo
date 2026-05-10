@@ -376,10 +376,10 @@ resource "random_string" "sb_suffix" {
 resource "azurerm_role_assignment" "dev_contributor" {
   count = var.environment == "dev" && var.dev_team_group_id != "" ? 1 : 0
 
-  scope              = azurerm_resource_group.main.id
+  scope                = azurerm_resource_group.main.id
   role_definition_name = "Contributor"
-  principal_type = "Group"
-  principal_id   = var.dev_team_group_id
+  principal_type       = "Group"
+  principal_id         = var.dev_team_group_id
 
   lifecycle {
     ignore_changes = [principal_id]
@@ -389,10 +389,10 @@ resource "azurerm_role_assignment" "dev_contributor" {
 resource "azurerm_role_assignment" "prod_owner" {
   count = var.environment == "prod" && var.prod_team_group_id != "" ? 1 : 0
 
-  scope              = azurerm_resource_group.main.id
+  scope                = azurerm_resource_group.main.id
   role_definition_name = "Owner"
-  principal_type = "Group"
-  principal_id   = var.prod_team_group_id
+  principal_type       = "Group"
+  principal_id         = var.prod_team_group_id
 
   lifecycle {
     ignore_changes = [principal_id]
@@ -402,10 +402,10 @@ resource "azurerm_role_assignment" "prod_owner" {
 resource "azurerm_role_assignment" "prod_reader" {
   count = var.environment == "prod" && var.prod_ops_group_id != "" ? 1 : 0
 
-  scope              = azurerm_resource_group.main.id
+  scope                = azurerm_resource_group.main.id
   role_definition_name = "Reader"
-  principal_type = "Group"
-  principal_id   = var.prod_ops_group_id
+  principal_type       = "Group"
+  principal_id         = var.prod_ops_group_id
 
   lifecycle {
     ignore_changes = [principal_id]
