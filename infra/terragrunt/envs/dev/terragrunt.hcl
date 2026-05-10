@@ -34,7 +34,7 @@ inputs = {
   subnet_aks_user_cidr     = "10.40.2.0/24"
   subnet_pe_cidr           = "10.40.10.0/24"
   aks_system_node_count    = 1
-  aks_user_node_min_count  = 1  # Free tier: reduced from 3
-  aks_user_node_max_count  = 2  # Free tier: reduced from 5
+  aks_user_node_min_count  = 2  # Scaled for platform + workloads
+  aks_user_node_max_count  = 3  # Allow burst for elastic-stack
   log_retention_days       = 30
 }
