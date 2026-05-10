@@ -38,7 +38,6 @@ jobs:
   validate:
     name: Validate Configuration
     runs-on: ubuntu-latest
-    environment: azure-dev
     permissions:
       contents: read
       id-token: write  # For OIDC token
@@ -51,13 +50,21 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-          # No credentials needed for validate step (offline)
 
       - name: Setup Terragrunt
         run: |
           wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.TG_VERSION }}/terragrunt_linux_amd64
           chmod +x terragrunt_linux_amd64
           sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+
+      - name: Azure OIDC Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          auth-type: SERVICE_PRINCIPAL
+          allow-no-subscriptions: false
 
       - name: Terraform Format Check
         working-directory: infra
@@ -66,6 +73,11 @@ jobs:
 
       - name: Terraform Validate
         working-directory: ${{ env.WORKING_DIR }}
+        env:
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: "true"
         run: |
           terragrunt validate
 
@@ -75,7 +87,6 @@ jobs:
   plan:
     name: Plan Deployment
     runs-on: ubuntu-latest
-    environment: azure-dev
     needs: validate
     permissions:
       contents: read
@@ -118,15 +129,10 @@ jobs:
           terragrunt init
 
           echo "=== Generating Plan ==="
-          terragrunt plan -out=tfplan
+          terragrunt plan -json > plan.json
 
-      - name: Save Plan Artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: tfplan
-          path: ${{ env.WORKING_DIR }}/tfplan
-          retention-days: 1
+          echo "=== Saving plan.json ==="
+          cat plan.json | jq -s 'add' > tfplan.json || cat plan.json > tfplan.json
 
       - name: Generate Plan Output (JSON)
         if: always()
@@ -137,14 +143,26 @@ jobs:
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           ARM_USE_OIDC: "true"
         run: |
-          terraform show -json tfplan > tfplan.json
-
-          # Count resource changes
-          ADDS=$(jq '[.resource_changes[]|select(.change.actions|contains(["create"]))]|length' tfplan.json)
-          UPDATES=$(jq '[.resource_changes[]|select(.change.actions|contains(["update"]))]|length' tfplan.json)
-          DELETES=$(jq '[.resource_changes[]|select(.change.actions|contains(["delete"]))]|length' tfplan.json)
+          # Count resource changes from plan JSON output
+          if [ -f tfplan.json ]; then
+            ADDS=$(jq '[select(.type=="resource_drift" or .type=="resource") | select(.change.actions|contains(["create"]))]|length' tfplan.json 2>/dev/null || echo "0")
+            UPDATES=$(jq '[select(.type=="resource") | select(.change.actions|contains(["update"]))]|length' tfplan.json 2>/dev/null || echo "0")
+            DELETES=$(jq '[select(.type=="resource") | select(.change.actions|contains(["delete"]))]|length' tfplan.json 2>/dev/null || echo "0")
+          else
+            ADDS="0"
+            UPDATES="0"
+            DELETES="0"
+          fi
 
           echo "PLAN_SUMMARY=Plan Summary: $ADDS to add, $UPDATES to modify, $DELETES to destroy" >> $GITHUB_ENV
+
+      - name: Save Plan Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIR }}/tfplan.json
+          retention-days: 1
 
       - name: Comment Plan on PR
         if: github.event_name == 'pull_request'
@@ -236,13 +254,7 @@ jobs:
           auth-type: SERVICE_PRINCIPAL
           allow-no-subscriptions: false
 
-      - name: Download Plan Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: ${{ env.WORKING_DIR }}
-
-      - name: Apply Terraform
+      - name: Initialize and Apply Terraform
         working-directory: ${{ env.WORKING_DIR }}
         env:
           ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
@@ -250,8 +262,11 @@ jobs:
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           ARM_USE_OIDC: "true"
         run: |
-          echo "=== Applying Terraform Plan ==="
-          terragrunt apply -auto-approve tfplan
+          echo "=== Initializing Terraform with Azure Storage Backend ==="
+          terragrunt init
+
+          echo "=== Applying Terraform ==="
+          terragrunt apply -auto-approve
 
           echo "=== Terraform State Summary ==="
           terragrunt state list | head -20 || true

@@ -236,6 +236,24 @@ az ad app federated-credential create \
   --parameters "$CRED_BODY" \
   || echo -e "${YELLOW}Note:${NC} Federated credential for PR may already exist"
 
+# Credential 3: GitHub environment (for jobs using environments)
+echo "Adding federated credential: GitHub environment..."
+CRED_BODY=$(cat <<EOF
+{
+  "name": "github-environment-azure-dev",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:${GITHUB_REPO}:environment:azure-dev",
+  "audiences": ["api://AzureADTokenExchange"],
+  "description": "GitHub Actions - azure-dev environment"
+}
+EOF
+)
+
+az ad app federated-credential create \
+  --id "$APP_ID" \
+  --parameters "$CRED_BODY" \
+  || echo -e "${YELLOW}Note:${NC} Federated credential for environment may already exist"
+
 echo -e "${GREEN}✓${NC} Federated OIDC credentials configured"
 echo ""
 
