@@ -103,7 +103,8 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          # token-format: 'access_token' - implicit from use-oidc
+          auth-type: SERVICE_PRINCIPAL
+          allow-no-subscriptions: false
 
       - name: Generate Terraform Plan
         working-directory: ${{ env.WORKING_DIR }}
@@ -232,6 +233,8 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          auth-type: SERVICE_PRINCIPAL
+          allow-no-subscriptions: false
 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
