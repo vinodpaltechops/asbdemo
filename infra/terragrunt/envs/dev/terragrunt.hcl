@@ -22,7 +22,6 @@ generate "backend" {
         container_name       = "tfstate-dev"
         key                  = "dev.terraform.tfstate"
         use_oidc             = true
-        skip_state_locking   = false
       }
     }
   EOT
