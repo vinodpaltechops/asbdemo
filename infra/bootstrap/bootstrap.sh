@@ -50,12 +50,12 @@ if [ -z "$SUBSCRIPTION_ID" ]; then
   exit 1
 fi
 
-# Validate Azure CLI is installed
-if ! command -v az &> /dev/null; then
-  echo -e "${RED}Error: Azure CLI is not installed${NC}"
-  echo "Install from: https://learn.microsoft.com/cli/azure/install-azure-cli"
-  exit 1
-fi
+# # Validate Azure CLI is installed
+# if ! command -v az &> /dev/null; then
+#   echo -e "${RED}Error: Azure CLI is not installed${NC}"
+#   echo "Install from: https://learn.microsoft.com/cli/azure/install-azure-cli"
+#   exit 1
+# fi
 
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
 echo -e "${BLUE}Terraform State Bootstrap Setup${NC}"
@@ -95,9 +95,7 @@ az storage account create \
   --kind StorageV2 \
   --https-only true \
   --access-tier Hot \
-  --min-tls-version TLS1_2 \
-  --default-action Deny \
-  --bypass AzureServices
+  --min-tls-version TLS1_2
 
 # Enable versioning for state file recovery
 az storage account blob-service-properties update \
@@ -111,6 +109,8 @@ echo ""
 # 4. Create blob containers for each environment
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}[4/7]${NC} Creating blob containers..."
+
+# Create containers (allowed by default)
 for env in dev prod hub; do
   az storage container create \
     --name "tfstate-$env" \
@@ -118,6 +118,14 @@ for env in dev prod hub; do
     --auth-mode login
   echo -e "${GREEN}✓${NC} Container created: tfstate-$env"
 done
+
+# Now restrict access with network rules
+echo "Applying network security: restricting access to AzureServices only..."
+az storage account update \
+  --name "$STORAGE_ACCOUNT" \
+  --resource-group "$RG_NAME" \
+  --default-action Deny \
+  --bypass AzureServices
 echo ""
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -129,9 +137,7 @@ az keyvault create \
   --resource-group "$RG_NAME" \
   --location "$LOCATION" \
   --sku standard \
-  --enable-rbac-authorization true \
-  --enable-soft-delete true \
-  --soft-delete-retention-days 7
+  --enable-rbac-authorization
 echo -e "${GREEN}✓${NC} Key Vault created with RBAC authorization"
 echo ""
 
