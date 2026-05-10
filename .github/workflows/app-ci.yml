@@ -6,11 +6,15 @@ on:
     paths:
       - "app/**"
       - ".github/workflows/app-ci.yml"
+      - ".github/workflows/docker-build-push.yml"
+      - ".github/actions/**"
   push:
     branches: [main]
     paths:
       - "app/**"
       - ".github/workflows/app-ci.yml"
+      - ".github/workflows/docker-build-push.yml"
+      - ".github/actions/**"
   workflow_dispatch:
 
 permissions:
@@ -21,82 +25,94 @@ env:
   ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
 
 jobs:
-  build-scan-push:
+  # ─────────────────────────────────────────────────────────────
+  # Build and scan orders-service image using reusable workflow
+  # ─────────────────────────────────────────────────────────────
+  build-orders:
+    name: Build & Scan Orders Service
+    uses: ./.github/workflows/docker-build-push.yml
+    with:
+      dockerfile-path: app/orders-service/Dockerfile
+      image-name: orders-service
+      registry: ${{ vars.ACR_LOGIN_SERVER }}
+
+  # ─────────────────────────────────────────────────────────────
+  # Build and scan payments-service image using reusable workflow
+  # ─────────────────────────────────────────────────────────────
+  build-payments:
+    name: Build & Scan Payments Service
+    uses: ./.github/workflows/docker-build-push.yml
+    with:
+      dockerfile-path: app/payments-service/Dockerfile
+      image-name: payments-service
+      registry: ${{ vars.ACR_LOGIN_SERVER }}
+
+  # ─────────────────────────────────────────────────────────────
+  # Azure login + push to ACR (only on push to main)
+  # ─────────────────────────────────────────────────────────────
+  push-to-acr:
+    name: Push Images to ACR
+    needs: [build-orders, build-payments]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.meta.outputs.tag }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Compute image tag
-        id: meta
-        run: echo "tag=$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build orders image
-        uses: docker/build-push-action@v6
-        with:
-          context: app
-          file: app/orders-service/Dockerfile
-          tags: ${{ env.ACR_LOGIN_SERVER }}/orders-service:${{ steps.meta.outputs.tag }}
-          load: true
-          cache-from: type=gha,scope=orders
-          cache-to: type=gha,mode=max,scope=orders
-
-      - name: Build payments image
-        uses: docker/build-push-action@v6
-        with:
-          context: app
-          file: app/payments-service/Dockerfile
-          tags: ${{ env.ACR_LOGIN_SERVER }}/payments-service:${{ steps.meta.outputs.tag }}
-          load: true
-          cache-from: type=gha,scope=payments
-          cache-to: type=gha,mode=max,scope=payments
-
-      - name: Trivy scan — orders
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.ACR_LOGIN_SERVER }}/orders-service:${{ steps.meta.outputs.tag }}
-          format: table
-          severity: CRITICAL,HIGH
-          exit-code: "0"
-          ignore-unfixed: true
-
-      - name: Trivy scan — payments
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.ACR_LOGIN_SERVER }}/payments-service:${{ steps.meta.outputs.tag }}
-          format: table
-          severity: CRITICAL,HIGH
-          exit-code: "0"
-          ignore-unfixed: true
-
-      - name: Azure login (OIDC)
-        if: github.event_name == 'push'
-        uses: azure/login@v2
+      - name: Azure login & fetch secrets
+        uses: ./.github/actions/azure-login-vault
+        id: vault
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          key-vault-name: ${{ vars.AZURE_KEY_VAULT_NAME }}
+          secret-names: 'acr-admin-user,acr-admin-password'
 
-      - name: ACR login
-        if: github.event_name == 'push'
-        run: az acr login --name "${ACR_LOGIN_SERVER%%.*}"
-
-      - name: Push images to ACR
-        if: github.event_name == 'push'
+      - name: Parse secrets and set output
+        id: secrets
         run: |
-          docker push "${ACR_LOGIN_SERVER}/orders-service:${{ steps.meta.outputs.tag }}"
-          docker push "${ACR_LOGIN_SERVER}/payments-service:${{ steps.meta.outputs.tag }}"
+          SECRETS='${{ steps.vault.outputs.secrets-json }}'
+          echo "acr-user=$(echo "$SECRETS" | jq -r '."acr-admin-user"')" >> "$GITHUB_OUTPUT"
+          echo "acr-pass=$(echo "$SECRETS" | jq -r '."acr-admin-password"')" >> "$GITHUB_OUTPUT"
 
+      - name: ACR login with Key Vault credentials
+        run: |
+          echo "${{ steps.secrets.outputs.acr-pass }}" | \
+            docker login ${{ env.ACR_LOGIN_SERVER }} \
+            -u "${{ steps.secrets.outputs.acr-user }}" \
+            --password-stdin
+
+      - name: Push orders image to ACR
+        run: |
+          docker pull ${{ needs.build-orders.outputs.image-uri }} || true
+          docker push ${{ needs.build-orders.outputs.image-uri }}
+
+      - name: Push payments image to ACR
+        run: |
+          docker pull ${{ needs.build-payments.outputs.image-uri }} || true
+          docker push ${{ needs.build-payments.outputs.image-uri }}
+
+      - name: Logout from ACR
+        if: always()
+        run: docker logout ${{ env.ACR_LOGIN_SERVER }} || true
+
+  # ─────────────────────────────────────────────────────────────
+  # Update GitOps manifests with new image tags
+  # ─────────────────────────────────────────────────────────────
   bump-gitops:
-    needs: build-scan-push
-    if: github.event_name == 'push'
+    name: Bump GitOps Image Tags
+    needs: [build-orders, build-payments, push-to-acr]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
@@ -106,26 +122,38 @@ jobs:
         with:
           kustomize-version: "5.4.3"
 
-      - name: Bump image tags
+      - name: Bump image tags in kustomization
         working-directory: gitops/workloads/envs/dev
         env:
-          TAG: ${{ needs.build-scan-push.outputs.image_tag }}
+          ORDERS_TAG: ${{ needs.build-orders.outputs.image-tag }}
+          PAYMENTS_TAG: ${{ needs.build-payments.outputs.image-tag }}
         run: |
+          echo "Updating orders-service to: ${{ env.ACR_LOGIN_SERVER }}/orders-service:${ORDERS_TAG}"
           kustomize edit set image \
-            "${ACR_LOGIN_SERVER}/orders-service=${ACR_LOGIN_SERVER}/orders-service:${TAG}"
-          kustomize edit set image \
-            "${ACR_LOGIN_SERVER}/payments-service=${ACR_LOGIN_SERVER}/payments-service:${TAG}"
+            "${{ env.ACR_LOGIN_SERVER }}/orders-service=${{ env.ACR_LOGIN_SERVER }}/orders-service:${ORDERS_TAG}"
 
-      - name: Commit and push
+          echo "Updating payments-service to: ${{ env.ACR_LOGIN_SERVER }}/payments-service:${PAYMENTS_TAG}"
+          kustomize edit set image \
+            "${{ env.ACR_LOGIN_SERVER }}/payments-service=${{ env.ACR_LOGIN_SERVER }}/payments-service:${PAYMENTS_TAG}"
+
+      - name: Commit and push GitOps changes
         env:
-          TAG: ${{ needs.build-scan-push.outputs.image_tag }}
+          ORDERS_TAG: ${{ needs.build-orders.outputs.image-tag }}
+          PAYMENTS_TAG: ${{ needs.build-payments.outputs.image-tag }}
         run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add gitops/workloads/envs/dev/kustomization.yaml
+
           if git diff --staged --quiet; then
-            echo "No image tag change; skipping commit."
+            echo "✓ No image tag changes needed"
             exit 0
           fi
-          git commit -m "ci(gitops): bump images to ${TAG}"
+
+          git commit -m "ci(gitops): bump orders:${ORDERS_TAG} payments:${PAYMENTS_TAG}"
           git push
+
+      - name: Notify sync
+        run: |
+          echo "✓ GitOps manifests updated"
+          echo "✓ ArgoCD will auto-sync within 3 minutes"

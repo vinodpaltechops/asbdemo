@@ -1,0 +1,62 @@
+name: 'Azure Login & Get Key Vault Secrets'
+description: 'Login to Azure OIDC and fetch secrets from Key Vault'
+
+inputs:
+  client-id:
+    description: 'Azure Client ID'
+    required: true
+  tenant-id:
+    description: 'Azure Tenant ID'
+    required: true
+  subscription-id:
+    description: 'Azure Subscription ID'
+    required: true
+  key-vault-name:
+    description: 'Key Vault name'
+    required: true
+  secret-names:
+    description: 'Comma-separated secret names to fetch'
+    required: true
+
+outputs:
+  secrets-json:
+    description: 'JSON object of fetched secrets'
+    value: ${{ steps.get-secrets.outputs.secrets-json }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Azure login (OIDC)
+      uses: azure/login@v2
+      with:
+        client-id: ${{ inputs.client-id }}
+        tenant-id: ${{ inputs.tenant-id }}
+        subscription-id: ${{ inputs.subscription-id }}
+        auth-type: SERVICE_PRINCIPAL
+
+    - name: Get secrets from Key Vault
+      id: get-secrets
+      shell: bash
+      run: |
+        # Parse comma-separated secret names
+        IFS=',' read -ra SECRETS <<< "${{ inputs.secret-names }}"
+
+        # Fetch each secret and build JSON object
+        secrets_json='{}'
+        for secret in "${SECRETS[@]}"; do
+          secret=$(echo "$secret" | xargs)  # Trim whitespace
+          echo "Fetching secret: $secret" >&2
+
+          value=$(az keyvault secret show \
+            --vault-name "${{ inputs.key-vault-name }}" \
+            --name "$secret" \
+            --query value -o tsv 2>/dev/null || echo "")
+
+          if [ -z "$value" ]; then
+            echo "⚠️  Secret not found: $secret (will skip)" >&2
+          else
+            secrets_json=$(echo "$secrets_json" | jq --arg key "$secret" --arg val "$value" '.[$key] = $val')
+          fi
+        done
+
+        echo "secrets-json=$(echo "$secrets_json" | jq -c .)" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,84 @@
+name: 'Docker Build, Scan & Push'
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile-path:
+        required: true
+        type: string
+        description: 'Path to Dockerfile'
+      image-name:
+        required: true
+        type: string
+        description: 'Image name (e.g., orders-service)'
+      registry:
+        required: true
+        type: string
+        description: 'ACR registry URL'
+      context:
+        required: false
+        type: string
+        default: 'app'
+        description: 'Docker build context'
+    outputs:
+      image-tag:
+        description: 'Built image tag (short SHA)'
+        value: ${{ jobs.build.outputs.image-tag }}
+      image-uri:
+        description: 'Full image URI (registry/image:tag)'
+        value: ${{ jobs.build.outputs.image-uri }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      uri: ${{ steps.meta.outputs.uri }}
+      image-tag: ${{ steps.meta.outputs.tag }}
+      image-uri: ${{ steps.meta.outputs.uri }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: meta
+        run: |
+          TAG=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "uri=${{ inputs.registry }}/${{ inputs.image-name }}:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile-path }}
+          tags: ${{ steps.meta.outputs.uri }}
+          load: true
+          cache-from: type=gha,scope=${{ inputs.image-name }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.image-name }}
+
+      - name: Trivy scan for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.uri }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+          ignore-unfixed: true
+
+      - name: Push image to ACR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile-path }}
+          tags: ${{ steps.meta.outputs.uri }}
+          push: true
+          cache-from: type=gha,scope=${{ inputs.image-name }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.image-name }}
